@@ -51,12 +51,17 @@ to try first; `submission_stacking.csv` remains available for comparison.
 - OOF ROC-AUC: **0.8882**
 - OOF accuracy: **0.8339**
 - OOF macro-F1: **0.8201**
-- Public Kaggle leaderboard score: **0.9099 (≈91% accuracy)**
+- Latest public Kaggle leaderboard scores:
+  - `submission_catboost.csv`: **0.77511**
+  - `submission_weighted_ensemble.csv`: **0.77511**
+  - `submission_majority_vote.csv`: **0.77511**
+  - `submission_stacking.csv`: **0.77033**
 
-The leaderboard score is an external evaluation, while the OOF metrics are the
-reproducible local validation results saved in `experiments/`. The leaderboard score
-belongs to the submitted artifact available at the time and should be revalidated if
-the feature or model configuration changes.
+The leaderboard scores were returned by Kaggle on 2026-07-31. They are external
+evaluations of specific submission files, while the OOF metrics are the reproducible
+local validation results saved in `experiments/`. Public scores can change with a
+different feature, threshold, or submission artifact, so they should not be treated
+as a replacement for local validation.
 
 ## Methodology
 
@@ -158,6 +163,9 @@ titanic/
 ├── reports/
 │   └── figures/
 ├── submissions/
+│   ├── submission_catboost.csv
+│   ├── submission_stacking.csv
+│   └── submission_summary.json
 ├── requirements.txt
 └── README.md
 ```

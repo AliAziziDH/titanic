@@ -16,7 +16,14 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 
-from src.config import DATA_PROCESSED_DIR, EXPERIMENTS_DIR, MODELS_DIR, RANDOM_STATE, TARGET_COLUMN
+from src.config import (
+    DATA_PROCESSED_DIR,
+    EXPERIMENTS_DIR,
+    MODELS_DIR,
+    RANDOM_STATE,
+    SUBMISSIONS_DIR,
+    TARGET_COLUMN,
+)
 from src.modeling import build_preprocessor, load_modeling_data
 
 LOGGER = logging.getLogger("titanic.stacking")
@@ -143,7 +150,7 @@ def run_stacking_pipeline() -> pd.DataFrame:
         "PassengerId": test["PassengerId"],
         TARGET_COLUMN: (test_predictions >= 0.5).astype(int),
     })
-    submission_path = Path(DATA_PROCESSED_DIR).parent.parent / "submission_stacking.csv"
+    submission_path = Path(SUBMISSIONS_DIR) / "submission_stacking.csv"
     submission.to_csv(submission_path, index=False)
 
     results: Dict[str, Any] = {

@@ -28,5 +28,11 @@
     "WeightedEnsemble": "/kaggle/working/titanic/submissions/submission_weighted_ensemble.csv",
     "MajorityVote": "/kaggle/working/titanic/submissions/submission_majority_vote.csv"
   },
+  "latest_kaggle_public_scores": {
+    "submission_catboost.csv": 0.77511,
+    "submission_stacking.csv": 0.77033,
+    "submission_weighted_ensemble.csv": 0.77511,
+    "submission_majority_vote.csv": 0.77511
+  },
   "rows": 418
 }

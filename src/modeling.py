@@ -25,6 +25,7 @@ from src.config import (
     LIGHTGBM_PARAMS,
     MODELS_DIR,
     RANDOM_STATE,
+    SUBMISSIONS_DIR,
     TARGET_COLUMN,
 )
 from src.features import save_engineered_data
@@ -204,7 +205,7 @@ def run_modeling_pipeline() -> pd.DataFrame:
     final_pipeline.fit(X_train, y_train)
     test_predictions = final_pipeline.predict(X_test).astype(int)
     submission = pd.DataFrame({"PassengerId": test["PassengerId"], TARGET_COLUMN: test_predictions})
-    submission_path = Path(DATA_PROCESSED_DIR).parent.parent / "submission.csv"
+    submission_path = Path(SUBMISSIONS_DIR) / "submission_modeling.csv"
     submission.to_csv(submission_path, index=False)
     joblib.dump(final_pipeline, MODEL_DIR / f"{best['model'].lower()}_final.joblib")
     (MODEL_DIR / "best_model.json").write_text(

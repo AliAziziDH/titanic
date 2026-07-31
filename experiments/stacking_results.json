@@ -32,7 +32,7 @@
     }
   },
   "submission": {
-    "path": "/kaggle/working/titanic/submission_stacking.csv",
+    "path": "/kaggle/working/titanic/submissions/submission_stacking.csv",
     "rows": 418
   }
 }
