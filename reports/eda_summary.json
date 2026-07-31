@@ -1,0 +1,433 @@
+{
+  "train_shape": [
+    891,
+    12
+  ],
+  "test_shape": [
+    418,
+    11
+  ],
+  "columns": [
+    "PassengerId",
+    "Survived",
+    "Pclass",
+    "Name",
+    "Sex",
+    "Age",
+    "SibSp",
+    "Parch",
+    "Ticket",
+    "Fare",
+    "Cabin",
+    "Embarked"
+  ],
+  "dtypes": {
+    "PassengerId": "int64",
+    "Survived": "int64",
+    "Pclass": "int64",
+    "Name": "object",
+    "Sex": "object",
+    "Age": "float64",
+    "SibSp": "int64",
+    "Parch": "int64",
+    "Ticket": "object",
+    "Fare": "float64",
+    "Cabin": "object",
+    "Embarked": "object"
+  },
+  "missing_values": {
+    "Cabin": {
+      "count": 687,
+      "percentage": 77.1
+    },
+    "Age": {
+      "count": 177,
+      "percentage": 19.87
+    },
+    "Embarked": {
+      "count": 2,
+      "percentage": 0.22
+    }
+  },
+  "duplicate_rows": {
+    "train": 0,
+    "test": 0
+  },
+  "target_distribution": {
+    "0": 0.6162,
+    "1": 0.3838
+  },
+  "numeric_statistics": {
+    "Age": {
+      "count": 714.0,
+      "mean": 29.6991,
+      "std": 14.5265,
+      "min": 0.42,
+      "25%": 20.125,
+      "50%": 28.0,
+      "75%": 38.0,
+      "max": 80.0
+    },
+    "Fare": {
+      "count": 891.0,
+      "mean": 32.2042,
+      "std": 49.6934,
+      "min": 0.0,
+      "25%": 7.9104,
+      "50%": 14.4542,
+      "75%": 31.0,
+      "max": 512.3292
+    },
+    "SibSp": {
+      "count": 891.0,
+      "mean": 0.523,
+      "std": 1.1027,
+      "min": 0.0,
+      "25%": 0.0,
+      "50%": 0.0,
+      "75%": 1.0,
+      "max": 8.0
+    },
+    "Parch": {
+      "count": 891.0,
+      "mean": 0.3816,
+      "std": 0.8061,
+      "min": 0.0,
+      "25%": 0.0,
+      "50%": 0.0,
+      "75%": 0.0,
+      "max": 6.0
+    },
+    "FamilySize": {
+      "count": 891.0,
+      "mean": 1.9046,
+      "std": 1.6135,
+      "min": 1.0,
+      "25%": 1.0,
+      "50%": 1.0,
+      "75%": 2.0,
+      "max": 11.0
+    }
+  },
+  "outliers": {
+    "Age": {
+      "count": 11,
+      "percentage": 1.54,
+      "lower_bound": -6.6875,
+      "upper_bound": 64.8125
+    },
+    "Fare": {
+      "count": 116,
+      "percentage": 13.02,
+      "lower_bound": -26.724,
+      "upper_bound": 65.6344
+    }
+  },
+  "sex_distribution": {
+    "male": 0.6476,
+    "female": 0.3524
+  },
+  "pclass_distribution": {
+    "3": 0.5511,
+    "1": 0.2424,
+    "2": 0.2065
+  },
+  "embarked_distribution": {
+    "S": 0.7228,
+    "C": 0.1886,
+    "Q": 0.0864,
+    "NaN": 0.0022
+  },
+  "ticket_frequency": {
+    "1601": 7,
+    "CA. 2343": 7,
+    "347082": 7,
+    "3101295": 6,
+    "CA 2144": 6,
+    "347088": 6,
+    "382652": 5,
+    "S.O.C. 14879": 5,
+    "17421": 4,
+    "349909": 4,
+    "19950": 4,
+    "347077": 4,
+    "2666": 4,
+    "LINE": 4,
+    "4133": 4,
+    "113781": 4,
+    "PC 17757": 4,
+    "113760": 4,
+    "W./C. 6608": 4,
+    "347742": 3
+  },
+  "cabin_frequency": {
+    "NaN": 687,
+    "G6": 4,
+    "C23 C25 C27": 4,
+    "B96 B98": 4,
+    "F2": 3,
+    "D": 3,
+    "E101": 3,
+    "C22 C26": 3,
+    "F33": 3,
+    "C83": 2,
+    "C123": 2,
+    "B28": 2,
+    "D26": 2,
+    "B58 B60": 2,
+    "E33": 2,
+    "D33": 2,
+    "C52": 2,
+    "F G73": 2,
+    "B77": 2,
+    "C93": 2
+  },
+  "survival_by_sex": {
+    "female": 0.742,
+    "male": 0.1889
+  },
+  "survival_by_pclass": {
+    "1": 0.6296,
+    "2": 0.4728,
+    "3": 0.2424
+  },
+  "survival_by_embarked": {
+    "C": 0.5536,
+    "Q": 0.3896,
+    "S": 0.337,
+    "nan": 1.0
+  },
+  "survival_by_deck": {
+    "A": 0.4667,
+    "B": 0.7447,
+    "C": 0.5932,
+    "D": 0.7576,
+    "E": 0.75,
+    "F": 0.6154,
+    "G": 0.5,
+    "T": 0.0,
+    "Unknown": 0.2999
+  },
+  "survival_by_title": {
+    "Capt": 0.0,
+    "Col": 0.5,
+    "Don": 0.0,
+    "Dr": 0.4286,
+    "Jonkheer": 0.0,
+    "Lady": 1.0,
+    "Major": 0.5,
+    "Master": 0.575,
+    "Miss": 0.6978,
+    "Mlle": 1.0,
+    "Mme": 1.0,
+    "Mr": 0.1567,
+    "Mrs": 0.792,
+    "Ms": 1.0,
+    "Rev": 0.0,
+    "Sir": 1.0,
+    "the Countess": 1.0
+  },
+  "survival_by_familysize": {
+    "1": 0.3035,
+    "2": 0.5528,
+    "3": 0.5784,
+    "4": 0.7241,
+    "5": 0.2,
+    "6": 0.1364,
+    "7": 0.3333,
+    "8": 0.0,
+    "11": 0.0
+  },
+  "correlations": {
+    "Age": {
+      "Age": 1.0,
+      "Fare": 0.0961,
+      "SibSp": -0.3082,
+      "Parch": -0.1891,
+      "FamilySize": -0.3019,
+      "Survived": -0.0772
+    },
+    "Fare": {
+      "Age": 0.0961,
+      "Fare": 1.0,
+      "SibSp": 0.1597,
+      "Parch": 0.2162,
+      "FamilySize": 0.2171,
+      "Survived": 0.2573
+    },
+    "SibSp": {
+      "Age": -0.3082,
+      "Fare": 0.1597,
+      "SibSp": 1.0,
+      "Parch": 0.4148,
+      "FamilySize": 0.8907,
+      "Survived": -0.0353
+    },
+    "Parch": {
+      "Age": -0.1891,
+      "Fare": 0.2162,
+      "SibSp": 0.4148,
+      "Parch": 1.0,
+      "FamilySize": 0.7831,
+      "Survived": 0.0816
+    },
+    "FamilySize": {
+      "Age": -0.3019,
+      "Fare": 0.2171,
+      "SibSp": 0.8907,
+      "Parch": 0.7831,
+      "FamilySize": 1.0,
+      "Survived": 0.0166
+    },
+    "Survived": {
+      "Age": -0.0772,
+      "Fare": 0.2573,
+      "SibSp": -0.0353,
+      "Parch": 0.0816,
+      "FamilySize": 0.0166,
+      "Survived": 1.0
+    }
+  },
+  "title_counts": {
+    "Mr": 517,
+    "Miss": 182,
+    "Mrs": 125,
+    "Master": 40,
+    "Dr": 7,
+    "Rev": 6,
+    "Col": 2,
+    "Mlle": 2,
+    "Major": 2,
+    "Ms": 1,
+    "Mme": 1,
+    "Don": 1,
+    "Lady": 1,
+    "Sir": 1,
+    "Capt": 1,
+    "the Countess": 1,
+    "Jonkheer": 1
+  },
+  "ticket_prefix_counts": {
+    "NUMERIC": 661,
+    "PC": 60,
+    "CA": 41,
+    "A": 28,
+    "STONO": 18,
+    "SOTONOQ": 15,
+    "SCPARIS": 11,
+    "WC": 10,
+    "SOC": 6,
+    "FCC": 5,
+    "C": 5,
+    "LINE": 4,
+    "PP": 3,
+    "WEP": 3,
+    "SOPP": 3,
+    "PPP": 2,
+    "SOTONO": 2,
+    "SCAH": 2,
+    "SWPP": 2,
+    "SCA": 1
+  },
+  "deck_counts": {
+    "Unknown": 687,
+    "C": 59,
+    "B": 47,
+    "D": 33,
+    "E": 32,
+    "A": 15,
+    "F": 13,
+    "G": 4,
+    "T": 1
+  },
+  "train_test_distributions": {
+    "Age": {
+      "train": {
+        "count": 714.0,
+        "mean": 29.6991,
+        "std": 14.5265,
+        "min": 0.42,
+        "25%": 20.125,
+        "50%": 28.0,
+        "75%": 38.0,
+        "max": 80.0
+      },
+      "test": {
+        "count": 332.0,
+        "mean": 30.2726,
+        "std": 14.1812,
+        "min": 0.17,
+        "25%": 21.0,
+        "50%": 27.0,
+        "75%": 39.0,
+        "max": 76.0
+      }
+    },
+    "Fare": {
+      "train": {
+        "count": 891.0,
+        "mean": 32.2042,
+        "std": 49.6934,
+        "min": 0.0,
+        "25%": 7.9104,
+        "50%": 14.4542,
+        "75%": 31.0,
+        "max": 512.3292
+      },
+      "test": {
+        "count": 417.0,
+        "mean": 35.6272,
+        "std": 55.9076,
+        "min": 0.0,
+        "25%": 7.8958,
+        "50%": 14.4542,
+        "75%": 31.5,
+        "max": 512.3292
+      }
+    },
+    "Sex": {
+      "train": {
+        "male": 0.6476,
+        "female": 0.3524
+      },
+      "test": {
+        "male": 0.6364,
+        "female": 0.3636
+      }
+    },
+    "Pclass": {
+      "train": {
+        "3": 0.5511,
+        "1": 0.2424,
+        "2": 0.2065
+      },
+      "test": {
+        "3": 0.5215,
+        "1": 0.256,
+        "2": 0.2225
+      }
+    },
+    "Embarked": {
+      "train": {
+        "S": 0.7228,
+        "C": 0.1886,
+        "Q": 0.0864,
+        "NaN": 0.0022
+      },
+      "test": {
+        "S": 0.6459,
+        "C": 0.244,
+        "Q": 0.11
+      }
+    }
+  },
+  "candidate_features": [
+    "Title",
+    "Deck",
+    "Family_Size",
+    "Is_Alone",
+    "Fare_per_Person",
+    "Ticket_Count",
+    "Is_Mother"
+  ]
+}

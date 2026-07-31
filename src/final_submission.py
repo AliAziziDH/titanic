@@ -1,0 +1,141 @@
+"""Generate final Titanic submissions from saved models and ensembles."""
+
+import json
+import logging
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict
+
+import joblib
+import numpy as np
+import pandas as pd
+
+from src.config import DATA_PROCESSED_DIR, EXPERIMENTS_DIR, MODELS_DIR, TARGET_COLUMN
+
+LOGGER = logging.getLogger("titanic.final_submission")
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+SUBMISSIONS_DIR = PROJECT_DIR / "submissions"
+
+
+def _load_scores() -> Dict[str, Dict[str, float]]:
+    """Load ROC-AUC and accuracy scores for weighting and reporting."""
+    scores: Dict[str, Dict[str, float]] = {}
+    path = Path(EXPERIMENTS_DIR) / "cv_results.json"
+    if path.exists():
+        for result in json.loads(path.read_text(encoding="utf-8")):
+            metrics = result.get("metrics", {})
+            scores[result["model"]] = {
+                key: float(metrics[key]["mean"])
+                for key in ("accuracy", "roc_auc")
+                if key in metrics
+            }
+    stacking_path = Path(EXPERIMENTS_DIR) / "stacking_results.json"
+    if stacking_path.exists():
+        result = json.loads(stacking_path.read_text(encoding="utf-8"))
+        scores["Stacking"] = {
+            key: float(result["stacker"][key])
+            for key in ("accuracy", "roc_auc")
+            if key in result.get("stacker", {})
+        }
+    return scores
+
+
+def _write_submission(name: str, passenger_ids: pd.Series, probabilities: np.ndarray) -> Path:
+    path = SUBMISSIONS_DIR / f"submission_{name.lower()}.csv"
+    pd.DataFrame({
+        "PassengerId": passenger_ids,
+        TARGET_COLUMN: (np.asarray(probabilities) >= 0.5).astype(int),
+    }).to_csv(path, index=False)
+    return path
+
+
+def _load_individual_models() -> Dict[str, Any]:
+    candidates = {
+        "CatBoost": "catboost_final.joblib",
+        "XGBoost": "xgboost_final.joblib",
+        "LightGBM": "lightgbm_final.joblib",
+        "RandomForest": "randomforest_final.joblib",
+    }
+    loaded = {}
+    for name, filename in candidates.items():
+        path = Path(MODELS_DIR) / filename
+        if path.exists():
+            loaded[name] = joblib.load(path)
+        else:
+            LOGGER.info("Optional individual model not found: %s", path)
+    return loaded
+
+
+def _load_stacking_models() -> tuple[Dict[str, Any], Any]:
+    order = ["RandomForest", "MLP", "CatBoost", "LightGBM"]
+    base = {}
+    for name in order:
+        path = Path(MODELS_DIR) / f"stacking_{name.lower()}.joblib"
+        if path.exists():
+            base[name] = joblib.load(path)
+    meta_path = Path(MODELS_DIR) / "stacking_meta_model.joblib"
+    if not base or not meta_path.exists():
+        raise FileNotFoundError("Complete stacking model artifacts are not available")
+    return {name: base[name] for name in order if name in base}, joblib.load(meta_path)
+
+
+def run_final_submission() -> Dict[str, Any]:
+    """Generate individual, stacking, weighted, and majority-vote submissions."""
+    SUBMISSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    train = pd.read_csv(Path(DATA_PROCESSED_DIR) / "train_clean.csv")
+    test = pd.read_csv(Path(DATA_PROCESSED_DIR) / "test_clean.csv")
+    features = [column for column in train.columns if column not in {TARGET_COLUMN, "PassengerId"}]
+    X_test = test[features]
+    passenger_ids = test["PassengerId"]
+    probabilities: Dict[str, np.ndarray] = {}
+    paths: Dict[str, str] = {}
+
+    for name, model in _load_individual_models().items():
+        probabilities[name] = model.predict_proba(X_test)[:, 1]
+        paths[name] = str(_write_submission(name, passenger_ids, probabilities[name]))
+
+    try:
+        base_models, meta_model = _load_stacking_models()
+        base_predictions = pd.DataFrame({
+            name: model.predict_proba(X_test)[:, 1] for name, model in base_models.items()
+        })
+        stack_probability = meta_model.predict_proba(base_predictions)[:, 1]
+        probabilities["Stacking"] = stack_probability
+        paths["Stacking"] = str(_write_submission("stacking", passenger_ids, stack_probability))
+    except FileNotFoundError as error:
+        LOGGER.warning("Skipping stacking submission: %s", error)
+
+    scores = _load_scores()
+    weighted_names = [name for name in probabilities if name in scores and name != "Stacking"]
+    if weighted_names:
+        weights = np.array([scores[name].get("roc_auc", scores[name]["accuracy"]) for name in weighted_names])
+        weights /= weights.sum()
+        weighted_probability = sum(
+            weight * probabilities[name] for weight, name in zip(weights, weighted_names)
+        )
+        paths["WeightedEnsemble"] = str(
+            _write_submission("weighted_ensemble", passenger_ids, weighted_probability)
+        )
+
+        hard_predictions = np.column_stack([
+            probabilities[name] >= 0.5 for name in weighted_names
+        ])
+        majority_probability = (hard_predictions.sum(axis=1) >= (len(weighted_names) / 2)).astype(float)
+        paths["MajorityVote"] = str(
+            _write_submission("majority_vote", passenger_ids, majority_probability)
+        )
+
+    summary = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "scores": scores,
+        "submissions": paths,
+        "rows": int(len(test)),
+    }
+    summary_path = SUBMISSIONS_DIR / "submission_summary.json"
+    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    LOGGER.info("Generated %d submission files in %s", len(paths), SUBMISSIONS_DIR)
+    return summary
+
+
+if __name__ == "__main__":
+    run_final_submission()

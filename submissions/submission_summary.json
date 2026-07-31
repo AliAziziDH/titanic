@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-07-31T18:08:17.807491+00:00",
+  "scores": {
+    "CatBoost": {
+      "accuracy": 0.8252735756282302,
+      "roc_auc": 0.8794058839645903
+    },
+    "XGBoost": {
+      "accuracy": 0.8196681522398677,
+      "roc_auc": 0.8712256715065908
+    },
+    "LightGBM": {
+      "accuracy": 0.8076935952963822,
+      "roc_auc": 0.8664392067037013
+    },
+    "RandomForest": {
+      "accuracy": 0.8204109388404159,
+      "roc_auc": 0.8732833656966673
+    },
+    "Stacking": {
+      "accuracy": 0.8327721661054994,
+      "roc_auc": 0.8835815251547205
+    }
+  },
+  "submissions": {
+    "CatBoost": "/kaggle/working/titanic/submissions/submission_catboost.csv",
+    "Stacking": "/kaggle/working/titanic/submissions/submission_stacking.csv",
+    "WeightedEnsemble": "/kaggle/working/titanic/submissions/submission_weighted_ensemble.csv",
+    "MajorityVote": "/kaggle/working/titanic/submissions/submission_majority_vote.csv"
+  },
+  "rows": 418
+}

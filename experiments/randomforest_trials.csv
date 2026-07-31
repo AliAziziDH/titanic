@@ -1,0 +1,2 @@
+number,value,datetime_start,datetime_complete,duration,params_max_depth,params_min_samples_leaf,params_min_samples_split,params_n_estimators,state
+0,0.8341149779854193,2026-07-31 17:57:47.159003,2026-07-31 17:57:54.302431,0 days 00:00:07.143428,20,6,15,250,PRUNED

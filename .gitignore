@@ -4,9 +4,9 @@ __pycache__/
 **/__pycache__/
 *.pyc
 *.pyo
-models/
-*.joblib
+models/*.joblib
 .venv/
 reports/figures/
-experiments/
+experiments/*.npz
+submissions/*.csv
 catboost_info/

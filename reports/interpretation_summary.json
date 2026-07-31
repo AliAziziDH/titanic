@@ -1,0 +1,155 @@
+{
+  "top_features": [
+    {
+      "feature": "numeric__Age",
+      "mean_abs_shap": 0.5373150056938638
+    },
+    {
+      "feature": "categorical__Title_Sex_Mr_male",
+      "mean_abs_shap": 0.4426054257138727
+    },
+    {
+      "feature": "numeric__Fare_per_Person",
+      "mean_abs_shap": 0.4423865443512896
+    },
+    {
+      "feature": "categorical__Title_Encoded_0",
+      "mean_abs_shap": 0.38474794498625775
+    },
+    {
+      "feature": "numeric__Fare",
+      "mean_abs_shap": 0.28869278693681344
+    },
+    {
+      "feature": "categorical__Sex_Pclass_female_2",
+      "mean_abs_shap": 0.2448089542400932
+    },
+    {
+      "feature": "categorical__Sex_male",
+      "mean_abs_shap": 0.21993386012799845
+    },
+    {
+      "feature": "categorical__Sex_female",
+      "mean_abs_shap": 0.17781836342720017
+    },
+    {
+      "feature": "categorical__Sex_Pclass_female_1",
+      "mean_abs_shap": 0.15850252569444997
+    },
+    {
+      "feature": "categorical__Embarked_S",
+      "mean_abs_shap": 0.14737489320235994
+    }
+  ],
+  "sanity_checks": {
+    "expected_features_rank_high": {
+      "passed": true
+    },
+    "passenger_id_not_high": {
+      "passed": true
+    },
+    "female_positive_effect": {
+      "passed": false,
+      "mean_shap": -0.00022382884861426433
+    },
+    "mr_negative_effect": {
+      "passed": false,
+      "mean_shap": null
+    },
+    "pclass_higher_value_negative_effect": {
+      "passed": false,
+      "correlation": null
+    }
+  },
+  "error_analysis": {
+    "count": 31,
+    "groups": {
+      "Pclass": [
+        {
+          "Pclass": 1,
+          "error_rate": 0.0,
+          "count": 216,
+          "errors": 0
+        },
+        {
+          "Pclass": 2,
+          "error_rate": 0.0326,
+          "count": 184,
+          "errors": 6
+        },
+        {
+          "Pclass": 3,
+          "error_rate": 0.0509,
+          "count": 491,
+          "errors": 25
+        }
+      ],
+      "Sex": [
+        {
+          "Sex": "female",
+          "error_rate": 0.0159,
+          "count": 314,
+          "errors": 5
+        },
+        {
+          "Sex": "male",
+          "error_rate": 0.0451,
+          "count": 577,
+          "errors": 26
+        }
+      ],
+      "Age_Band": [
+        {
+          "Age_Band": "Adult",
+          "error_rate": 0.0479,
+          "count": 501,
+          "errors": 24
+        },
+        {
+          "Age_Band": "Child",
+          "error_rate": 0.0,
+          "count": 69,
+          "errors": 0
+        },
+        {
+          "Age_Band": "Missing",
+          "error_rate": 0.0282,
+          "count": 177,
+          "errors": 5
+        },
+        {
+          "Age_Band": "Senior",
+          "error_rate": 0.0,
+          "count": 74,
+          "errors": 0
+        },
+        {
+          "Age_Band": "Teen",
+          "error_rate": 0.0286,
+          "count": 70,
+          "errors": 2
+        }
+      ],
+      "Embarked": [
+        {
+          "Embarked": "C",
+          "error_rate": 0.0179,
+          "count": 168,
+          "errors": 3
+        },
+        {
+          "Embarked": "Q",
+          "error_rate": 0.0519,
+          "count": 77,
+          "errors": 4
+        },
+        {
+          "Embarked": "S",
+          "error_rate": 0.0372,
+          "count": 646,
+          "errors": 24
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,32 @@
+PassengerId,Survived,Pclass,Sex,Age,SibSp,Parch,Fare,Embarked,Title,Title_Encoded,Family_Name,Deck,Deck_Encoded,Has_Cabin,Deck_Group,Family_Size,Is_Alone,Family_Size_Category,Ticket_Count,Is_Group,Ticket_Prefix,Fare_per_Person,Fare_Bin,Sex_Pclass,Title_Sex,Is_Mother,Age_Band,Predicted
+37,1,3,male,28.517289265454536,0,0,7.2292,C,Mr,0,Mamee,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.2292,Low,male_3,Mr_male,0,Missing,0
+82,1,3,male,29.0,0,0,9.5,S,Mr,0,Sheerlinck,U,0,0,U,1,1,Alone,1,0,NUMERIC,9.5,Medium,male_3,Mr_male,0,Adult,0
+108,1,3,male,30.51033859436703,0,0,7.775,S,Mr,0,Moss,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.775,Low,male_3,Mr_male,0,Missing,0
+128,1,3,male,24.0,0,0,7.1417,S,Mr,0,Madsen,U,0,0,U,1,1,Alone,1,0,C,7.1417,Low,male_3,Mr_male,0,Adult,0
+147,1,3,male,27.0,0,0,7.7958,S,Mr,0,Andersson,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.7958,Low,male_3,Mr_male,0,Adult,0
+200,0,2,female,24.0,0,0,13.0,S,Miss,1,Yrois,U,0,0,U,1,1,Alone,1,0,NUMERIC,13.0,Medium,female_2,Miss_female,0,Adult,1
+205,1,3,male,18.0,0,0,8.05,S,Mr,0,Cohen,U,0,0,U,1,1,Alone,1,0,A/,8.05,Medium,male_3,Mr_male,0,Teen,0
+221,1,3,male,16.0,0,0,8.05,S,Mr,0,Sunderland,U,0,0,U,1,1,Alone,1,0,SOTON/OQ,8.05,Medium,male_3,Mr_male,0,Teen,0
+227,1,2,male,19.0,0,0,10.5,S,Mr,0,Mellors,U,0,0,U,1,1,Alone,1,0,SW/PP,10.5,Medium,male_2,Mr_male,0,Adult,0
+265,0,3,female,24.83334645502274,0,0,7.75,Q,Miss,1,Henry,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.75,Low,female_3,Miss_female,0,Missing,1
+268,1,3,male,25.0,1,0,7.775,S,Mr,0,Persson,U,0,0,U,2,0,Small,1,0,NUMERIC,3.8875,Low,male_3,Mr_male,0,Adult,0
+284,1,3,male,19.0,0,0,8.05,S,Mr,0,Dorking,U,0,0,U,1,1,Alone,1,0,A/,8.05,Medium,male_3,Mr_male,0,Adult,0
+287,1,3,male,30.0,0,0,9.5,S,Mr,0,de Mulder,U,0,0,U,1,1,Alone,1,0,NUMERIC,9.5,Medium,male_3,Mr_male,0,Adult,0
+289,1,2,male,42.0,0,0,13.0,S,Mr,0,Hosono,U,0,0,U,1,1,Alone,1,0,NUMERIC,13.0,Medium,male_2,Mr_male,0,Adult,0
+339,1,3,male,45.0,0,0,8.05,S,Mr,0,Dahl,U,0,0,U,1,1,Alone,1,0,NUMERIC,8.05,Medium,male_3,Mr_male,0,Adult,0
+358,0,2,female,38.0,0,0,13.0,S,Miss,1,Funk,U,0,0,U,1,1,Alone,1,0,NUMERIC,13.0,Medium,female_2,Miss_female,0,Adult,1
+392,1,3,male,21.0,0,0,7.7958,S,Mr,0,Jansson,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.7958,Low,male_3,Mr_male,0,Adult,0
+401,1,3,male,39.0,0,0,7.925,S,Mr,0,Niskanen,U,0,0,U,1,1,Alone,1,0,STON/O,7.925,Medium,male_3,Mr_male,0,Adult,0
+415,1,3,male,44.0,0,0,7.925,S,Mr,0,Sundman,U,0,0,U,1,1,Alone,1,0,STON/O,7.925,Medium,male_3,Mr_male,0,Adult,0
+456,1,3,male,29.0,0,0,7.8958,C,Mr,0,Jalsevac,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.8958,Low,male_3,Mr_male,0,Adult,0
+502,0,3,female,21.0,0,0,7.75,Q,Miss,1,Canavan,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.75,Low,female_3,Miss_female,0,Adult,1
+511,1,3,male,29.0,0,0,7.75,Q,Mr,0,Daly,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.75,Low,male_3,Mr_male,0,Adult,0
+544,1,2,male,32.0,1,0,26.0,S,Mr,0,Beane,U,0,0,U,2,0,Small,2,1,NUMERIC,13.0,High,male_2,Mr_male,0,Adult,0
+554,1,3,male,22.0,0,0,7.225,C,Mr,0,Leeni,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.225,Low,male_3,Mr_male,0,Adult,0
+570,1,3,male,32.0,0,0,7.8542,S,Mr,0,Jonsson,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.8542,Low,male_3,Mr_male,0,Adult,0
+580,1,3,male,32.0,0,0,7.925,S,Mr,0,Jussila,U,0,0,U,1,1,Alone,1,0,STON/O,7.925,Medium,male_3,Mr_male,0,Adult,0
+745,1,3,male,31.0,0,0,7.925,S,Mr,0,Stranden,U,0,0,U,1,1,Alone,1,0,STON/O,7.925,Medium,male_3,Mr_male,0,Adult,0
+822,1,3,male,27.0,0,0,8.6625,S,Mr,0,Lulic,U,0,0,U,1,1,Alone,1,0,NUMERIC,8.6625,Medium,male_3,Mr_male,0,Adult,0
+827,0,3,male,29.426596794208205,0,0,56.4958,S,Mr,0,Lam,U,0,0,U,1,1,Alone,7,1,NUMERIC,56.4958,Very High,male_3,Mr_male,0,Missing,1
+829,1,3,male,38.2479551501508,0,0,7.75,Q,Mr,0,McCormack,U,0,0,U,1,1,Alone,1,0,NUMERIC,7.75,Low,male_3,Mr_male,0,Missing,0
+855,0,2,female,44.0,1,0,26.0,S,Mrs,2,Carter,U,0,0,U,2,0,Small,2,1,NUMERIC,13.0,High,female_2,Mrs_female,0,Adult,1
