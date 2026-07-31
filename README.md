@@ -165,8 +165,9 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Place Kaggle's `train.csv` and `test.csv` in `data/raw/` for a local run. In Kaggle,
-the configured input directory is `/kaggle/input/competitions/titanic/`.
+Place Kaggle's `train.csv` and `test.csv` in `data/raw/` for a local run. The code
+automatically uses `data/raw/` when both files are present and otherwise falls back to
+the Kaggle directory `/kaggle/input/competitions/titanic/`.
 
 ## Usage
 
@@ -181,6 +182,10 @@ python -m src.stacking
 python -m src.interpret
 python -m src.final_submission
 ```
+
+`modeling.py` and `stacking.py` create the required model artifacts locally; binary
+model files are intentionally excluded from GitHub. Run those stages before
+`interpret.py` or `final_submission.py` on a fresh clone.
 
 Generate the README visual reports:
 

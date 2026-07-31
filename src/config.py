@@ -54,6 +54,14 @@ def is_gpu_available() -> bool:
 DEVICE = "cuda" if is_gpu_available() else "cpu"
 
 
+def get_input_dir() -> Path:
+    """Return local raw data when present, otherwise the Kaggle input directory."""
+    local_files = [DATA_RAW_DIR / "train.csv", DATA_RAW_DIR / "test.csv"]
+    if all(path.exists() for path in local_files):
+        return DATA_RAW_DIR
+    return KAGGLE_INPUT_DIR
+
+
 # Baseline model parameters.
 CATBOOST_PARAMS = {
     "iterations": 500,

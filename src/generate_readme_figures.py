@@ -13,7 +13,7 @@ import pandas as pd
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 
-from src.config import DATA_PROCESSED_DIR, KAGGLE_INPUT_DIR, MODELS_DIR
+from src.config import DATA_PROCESSED_DIR, MODELS_DIR, get_input_dir
 
 LOGGER = logging.getLogger("titanic.readme_figures")
 PROJECT_DIR = Path(__file__).resolve().parent.parent
@@ -41,14 +41,15 @@ def _load_training_data() -> pd.DataFrame:
     clean_path = Path(DATA_PROCESSED_DIR) / "train_clean.csv"
     if clean_path.exists():
         return pd.read_csv(clean_path)
-    raw_path = Path(KAGGLE_INPUT_DIR) / "train.csv"
+    input_dir = get_input_dir()
+    raw_path = input_dir / "train.csv"
     if not raw_path.exists():
         raise FileNotFoundError("Neither processed data nor Kaggle train.csv is available")
     from src.features import engineer_features
     from src.imputation import impute_missing_values
 
     raw_train = pd.read_csv(raw_path)
-    raw_test = pd.read_csv(Path(KAGGLE_INPUT_DIR) / "test.csv")
+    raw_test = pd.read_csv(input_dir / "test.csv")
     return impute_missing_values(
         engineer_features(raw_train), engineer_features(raw_test)
     )[0]
@@ -62,8 +63,9 @@ def _load_test_data() -> pd.DataFrame:
     from src.features import engineer_features
     from src.imputation import impute_missing_values
 
-    raw_train = pd.read_csv(Path(KAGGLE_INPUT_DIR) / "train.csv")
-    raw_test = pd.read_csv(Path(KAGGLE_INPUT_DIR) / "test.csv")
+    input_dir = get_input_dir()
+    raw_train = pd.read_csv(input_dir / "train.csv")
+    raw_test = pd.read_csv(input_dir / "test.csv")
     return impute_missing_values(
         engineer_features(raw_train), engineer_features(raw_test)
     )[1]

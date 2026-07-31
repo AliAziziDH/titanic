@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from src.config import KAGGLE_INPUT_DIR, LOGGER, TARGET_COLUMN
+from src.config import LOGGER, TARGET_COLUMN, get_input_dir
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,7 +41,7 @@ def _save_plot(name: str, plotter: Callable[[], None]) -> None:
 
 def _load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load the original train and test datasets from Kaggle input."""
-    input_dir = KAGGLE_INPUT_DIR
+    input_dir = get_input_dir()
     train_path = input_dir / "train.csv"
     test_path = input_dir / "test.csv"
     if not train_path.exists() or not test_path.exists():

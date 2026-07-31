@@ -10,11 +10,30 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from src.config import DATA_PROCESSED_DIR, EXPERIMENTS_DIR, MODELS_DIR, TARGET_COLUMN
+from src.config import DATA_PROCESSED_DIR, EXPERIMENTS_DIR, MODELS_DIR, TARGET_COLUMN, get_input_dir
 
 LOGGER = logging.getLogger("titanic.final_submission")
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 SUBMISSIONS_DIR = PROJECT_DIR / "submissions"
+
+
+def _load_clean_data() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load processed data, rebuilding it from local or Kaggle raw data when needed."""
+    train_path = Path(DATA_PROCESSED_DIR) / "train_clean.csv"
+    test_path = Path(DATA_PROCESSED_DIR) / "test_clean.csv"
+    if train_path.exists() and test_path.exists():
+        return pd.read_csv(train_path), pd.read_csv(test_path)
+    from src.features import engineer_features
+    from src.imputation import impute_missing_values, save_clean_data
+
+    input_dir = get_input_dir()
+    raw_train = pd.read_csv(input_dir / "train.csv")
+    raw_test = pd.read_csv(input_dir / "test.csv")
+    engineered_train = engineer_features(raw_train, reference_df=pd.concat([raw_train, raw_test], ignore_index=True))
+    engineered_test = engineer_features(raw_test, reference_df=pd.concat([raw_train, raw_test], ignore_index=True))
+    clean_train, clean_test = impute_missing_values(engineered_train, engineered_test)
+    save_clean_data(clean_train, clean_test)
+    return clean_train, clean_test
 
 
 def _load_scores() -> Dict[str, Dict[str, float]]:
@@ -82,8 +101,7 @@ def _load_stacking_models() -> tuple[Dict[str, Any], Any]:
 def run_final_submission() -> Dict[str, Any]:
     """Generate individual, stacking, weighted, and majority-vote submissions."""
     SUBMISSIONS_DIR.mkdir(parents=True, exist_ok=True)
-    train = pd.read_csv(Path(DATA_PROCESSED_DIR) / "train_clean.csv")
-    test = pd.read_csv(Path(DATA_PROCESSED_DIR) / "test_clean.csv")
+    train, test = _load_clean_data()
     features = [column for column in train.columns if column not in {TARGET_COLUMN, "PassengerId"}]
     X_test = test[features]
     passenger_ids = test["PassengerId"]

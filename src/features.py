@@ -73,25 +73,25 @@ def _create_family_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _create_ticket_features(df: pd.DataFrame) -> pd.DataFrame:
+def _create_ticket_features(df: pd.DataFrame, reference: pd.DataFrame | None = None) -> pd.DataFrame:
     """Create passenger count and group indicators for each ticket."""
-    df["Ticket_Count"] = df["Ticket"].map(df["Ticket"].value_counts(dropna=False))
+    ticket_counts = (reference if reference is not None else df)["Ticket"].value_counts(dropna=False)
+    df["Ticket_Count"] = df["Ticket"].map(ticket_counts)
     df["Ticket_Count"] = df["Ticket_Count"].fillna(1).astype("int64")
     df["Is_Group"] = (df["Ticket_Count"] > 1).astype("int8")
     return df
 
 
-def _create_fare_features(df: pd.DataFrame) -> pd.DataFrame:
+def _create_fare_features(df: pd.DataFrame, reference: pd.DataFrame | None = None) -> pd.DataFrame:
     """Create per-person fare and quantile-based fare category."""
     family_size = df["Family_Size"].replace(0, 1)
     df["Fare_per_Person"] = df["Fare"] / family_size
     try:
-        df["Fare_Bin"] = pd.qcut(
-            df["Fare"],
-            q=4,
-            labels=["Low", "Medium", "High", "Very High"],
-            duplicates="drop",
-        )
+        reference_fare = (reference if reference is not None else df)["Fare"].dropna()
+        quantiles = reference_fare.quantile([0, 0.25, 0.5, 0.75, 1]).to_numpy()
+        edges = np.unique(quantiles)
+        labels = ["Low", "Medium", "High", "Very High"][: len(edges) - 1]
+        df["Fare_Bin"] = pd.cut(df["Fare"], bins=edges, labels=labels, include_lowest=True)
     except ValueError:
         df["Fare_Bin"] = pd.Series(pd.NA, index=df.index, dtype="string")
     return df
@@ -121,7 +121,7 @@ def _create_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
+def engineer_features(df: pd.DataFrame, reference_df: pd.DataFrame | None = None) -> pd.DataFrame:
     """Return a new DataFrame with Titanic feature engineering applied."""
     required = set(ESSENTIAL_COLUMNS + ["Name", "Ticket", "Cabin"])
     missing = required.difference(df.columns)
@@ -135,8 +135,8 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     _extract_deck(engineered)
     _extract_ticket_prefix(engineered)
     _create_family_features(engineered)
-    _create_ticket_features(engineered)
-    _create_fare_features(engineered)
+    _create_ticket_features(engineered, reference_df)
+    _create_fare_features(engineered, reference_df)
     _create_interaction_features(engineered)
     _create_advanced_features(engineered)
 
@@ -175,13 +175,20 @@ def save_engineered_data(
     output_dir.mkdir(parents=True, exist_ok=True)
     train_path = output_dir / "train_engineered.csv"
     test_path = output_dir / "test_engineered.csv"
-    engineer_features(train).to_csv(train_path, index=False)
-    engineer_features(test).to_csv(test_path, index=False)
+    combined = pd.concat([train, test], ignore_index=True, sort=False)
+    engineered = engineer_features(combined, reference_df=combined)
+    engineer_train = engineered.iloc[: len(train)].copy()
+    engineer_test = engineered.iloc[len(train):].copy()
+    engineer_train.to_csv(train_path, index=False)
+    engineer_test.drop(columns=[TARGET_COLUMN], errors="ignore").to_csv(test_path, index=False)
     LOGGER.info("Saved engineered data to %s and %s", train_path, test_path)
     return train_path, test_path
 
 
 if __name__ == "__main__":
-    train_data = pd.read_csv(KAGGLE_INPUT_DIR / "train.csv")
-    test_data = pd.read_csv(KAGGLE_INPUT_DIR / "test.csv")
+    from src.config import get_input_dir
+
+    input_dir = get_input_dir()
+    train_data = pd.read_csv(input_dir / "train.csv")
+    test_data = pd.read_csv(input_dir / "test.csv")
     save_engineered_data(train_data, test_data)
