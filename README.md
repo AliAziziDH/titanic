@@ -1,198 +1,179 @@
-# 🚢 Titanic - Machine Learning from Disaster
+# Titanic: From Raw Data to a Leakage-Aware Ensemble
 
-**A Journey from Data to a 91% Accuracy Model**
+An end-to-end, modular solution for the [Kaggle Titanic competition](https://www.kaggle.com/competitions/titanic).
 
-[![Kaggle](https://img.shields.io/badge/Kaggle-Competition-blue)](https://www.kaggle.com/competitions/titanic)
 [![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
-[![CatBoost](https://img.shields.io/badge/CatBoost-1.2-orange.svg)](https://catboost.ai/)
+[![Kaggle](https://img.shields.io/badge/Kaggle-Competition-20BEFF)](https://www.kaggle.com/competitions/titanic)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](#license)
 
----
+## Table of Contents
 
-## 📖 The Story of This Project
+- [Overview](#overview)
+- [Results](#results)
+- [Methodology](#methodology)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Visual Reports](#visual-reports)
+- [Lessons Learned](#lessons-learned)
+- [Author](#author)
+- [License](#license)
 
-This repository is not just a collection of scripts. It's the story of how a simple Kaggle competition became a deep dive into the art and science of machine learning.
+## Overview
 
-**The goal was simple:** predict which passengers survived the Titanic disaster.  
-**The journey was anything but.**
+The objective is simple: predict whether a passenger survived the Titanic disaster. The
+engineering challenge is to turn a small, mixed-type historical dataset into a reliable,
+reproducible machine-learning workflow.
 
-What started as a straightforward classification problem turned into a masterclass in feature engineering, model stacking, and—most importantly—**preventing data leakage**.
+This project deliberately treats validation and leakage prevention as first-class
+requirements. Every transformation used by a model is placed inside a pipeline or fitted
+only from training data. The workflow is reproducible through a fixed seed of `42`.
 
----
+## Results
 
-## 🗺️ The Phases of the Journey
+### Individual models
 
-### Phase 1: The Groundwork (EDA & Feature Engineering)
+| Model | Repeated-CV ROC-AUC | Repeated-CV Accuracy |
+| --- | ---: | ---: |
+| CatBoost | **0.8794** | 0.8253 |
+| RandomForest | 0.8733 | 0.8204 |
+| XGBoost | 0.8712 | 0.8197 |
+| LightGBM | 0.8664 | 0.8077 |
 
-> *"Know thy data."*
+### Stacking ensemble
 
-Before writing any model, I spent time understanding the data. The Titanic dataset is small but rich with stories.
+The stacker combines CatBoost, LightGBM, RandomForest, and a regularized MLP through a
+Logistic Regression meta-model trained on out-of-fold probabilities.
 
-**Key Discoveries:**
-- **Missing Data:** 77% of `Cabin` was missing. This wasn't an error—it was a signal. Passengers without cabins were likely from lower classes.
-- **Names Hiding Secrets:** Titles like `Mr`, `Miss`, `Mrs`, and `Master` were strong indicators of age, gender, and social status.
-- **Fare Alone Wasn't Enough:** A family ticket meant shared fares. `Fare_per_Person` became a game-changer.
+- OOF ROC-AUC: **0.8836**
+- OOF accuracy: **0.8328**
+- OOF macro-F1: **0.8192**
+- Public Kaggle leaderboard score: **0.9099**
 
-**The First Lesson:** *Raw data is just noise. Meaningful features are the music.*
+The leaderboard score is an external evaluation, while the OOF metrics are the
+reproducible local validation results saved in `experiments/`.
 
----
+## Methodology
 
-### Phase 2: The First Models (CatBoost, XGBoost, LightGBM, RandomForest)
+### 1. EDA: understanding the passenger data
 
-> *"Sometimes, the simplest model is the best starting point."*
+The analysis began with shapes, dtypes, distributions, missingness, duplicates, and
+train/test comparisons. `Cabin` was missing for roughly 77% of training rows, `Age` for
+roughly 20%, and `Embarked` for only two rows.
 
-I trained four models to establish a baseline. Each had its strengths and weaknesses.
+The main challenge was distinguishing noise from useful signal. Survival varied strongly
+by sex and passenger class, while names, cabin letters, tickets, and family structure
+provided additional context.
 
-| Model | CV ROC-AUC | Notes |
-|:---|:---:|:---|
-| **CatBoost** | **0.8794** | Best overall. Handled categorical features effortlessly. |
-| **XGBoost** | 0.8712 | Fast but needed more tuning. |
-| **LightGBM** | 0.8664 | Lightweight, but slightly less accurate. |
-| **RandomForest** | 0.8733 | Simple, reliable, but high variance. |
+### 2. Feature engineering: turning context into variables
 
-**The Second Lesson:** *CatBoost was the MVP, but it was clear that combining models could be stronger.*
+The feature pipeline extracts:
 
----
+- `Title` and `Title_Encoded` from `Name`
+- `Deck`, `Deck_Encoded`, `Deck_Group`, and `Has_Cabin` from `Cabin`
+- `Family_Size`, `Is_Alone`, and `Family_Size_Category`
+- `Ticket_Count`, `Is_Group`, and `Ticket_Prefix`
+- `Fare_per_Person` and `Fare_Bin`
+- `Sex_Pclass`, `Title_Sex`, `Is_Mother`, and `Age_Band`
 
-### Phase 3: The Ensemble (Stacking)
+The raw `Name`, `Ticket`, and `Cabin` columns are removed after extraction. No target
+column is used to construct features.
 
-> *"Alone we can do so little; together we can do so much."*
+### 3. Imputation: filling missing values without shortcuts
 
-I built a **Stacking Ensemble**:
-- **Base Models:** CatBoost, LightGBM, RandomForest, and an MLP (Neural Network).
-- **Meta-Model:** A simple Logistic Regression trained on **Out-of-Fold (OOF)** predictions to avoid data leakage.
+Age is predicted with a `RandomForestRegressor` using demographic and ticket-derived
+features. The model is evaluated with repeated stratified folds and then fitted on the
+known training ages for final missing-value predictions. Fare uses a train-derived
+conditional median by class and embarkation, while Embarked uses class and fare logic
+with a mode fallback.
 
-**The Challenge:** The MLP required heavy regularization (Dropout 0.5, Batch Normalization) to prevent overfitting.
+The important lesson is that an imputer is part of the model, not a preliminary step
+that can inspect all data indiscriminately.
 
-**The Result:**
-- **CV ROC-AUC:** Improved from **0.8794** to **0.8836**.
-- **CV Accuracy:** Reached **0.8328**.
+### 4. Modeling: a reproducible baseline
 
-**The Third Lesson:** *Ensemble models are like a team—diverse members make the team stronger.*
+Each candidate model uses a `ColumnTransformer` with median numeric imputation,
+standardization, categorical imputation, and one-hot encoding. The complete
+preprocessing-and-model pipeline is refitted inside every validation fold.
 
----
+CatBoost was the strongest individual model. XGBoost, LightGBM, and RandomForest added
+useful diversity despite slightly lower individual scores.
 
-### Phase 4: Interpretation & Sanity Checks (SHAP)
+### 5. Stacking: learning from honest predictions
 
-> *"Trust, but verify."*
+For each fold, every base model is trained on the fold's training rows and produces
+probabilities for the held-out rows. These out-of-fold (OOF) probabilities form the
+meta-model training matrix. The base models are then refitted on all training data for
+test predictions.
 
-A model is useless if you can't explain it. I used **SHAP** to understand feature importance and ensure the model was making logical decisions.
+This avoids the common stacking failure mode where a meta-model learns from
+predictions made on the same rows used to fit a base model.
 
-**Sanity Checks Passed:**
-- **Sex:** Women had significantly higher survival chances. ✅
-- **Title:** "Mr" → lower survival. "Miss" → higher. ✅
-- **Pclass:** 1st class → higher survival. ✅
-- **PassengerId:** Had near-zero importance, proving no data leakage. ✅
+### 6. Interpretation and sanity checks
 
-**The Fourth Lesson:** *A black-box model is dangerous. SHAP makes it transparent.*
+SHAP analysis checks both importance and direction. Sex, title, and class are expected
+to be influential; female passengers should generally receive positive survival
+contributions, while `Mr` and higher class numbers should generally contribute
+negatively. Error analysis groups mistakes by class, sex, age band, and embarkation.
 
----
+Interpretation is treated as a validation layer: a high score is not enough if the
+model is relying on an accidental identifier or implausible signal.
 
-### Phase 5: The Final Submission
+### 7. Final submission
 
-> *"After all the effort, the moment of truth."*
+The final submission utility validates the Kaggle schema, thresholds probabilities at
+0.5, preserves `PassengerId`, and writes individual, stacking, weighted-ensemble, and
+majority-vote candidates when their model artifacts are available.
 
-The final model (Stacking Ensemble) achieved:
-
-- **Public LB Score:** **0.9099** (≈91% accuracy)
-- **Public LB Ranking:** Top 5% of competitors
-
-**The Fifth Lesson:** *A 91% accuracy on the Titanic is a solid result. But the real win is the process—every failure, every insight, every moment of doubt—that led to this point.*
-
----
-
-## 📊 Visual Insights (Generated by the Project)
-
-Here are some of the visual outputs from the EDA and interpretation phases. They tell the story of the data and the model.
-
-### 1. Survival by Sex, Class, and Age
-![Survival by Sex and Class](reports/figures/shap_summary_plot.png)
-
-### 2. Feature Importance (SHAP)
-![SHAP Summary](reports/figures/shap_summary_plot.png)
-
-### 3. SHAP Dependence Plots for Key Features
-![SHAP Dependence](reports/figures/shap_dependence_Sex.png)
-
-### 4. Model Performance Comparison
-![Model ROC-AUC](reports/figures/cv_results.png)
-
-*(Note: The actual images are generated when you run the project locally or in Kaggle.)*
-
----
-
-## 🛠️ The Tech Stack
-
-| Tool | Purpose |
-|:---|:---|
-| **Python 3.12** | The backbone of everything. |
-| **CatBoost** | Best single model. Handled categoricals flawlessly. |
-| **XGBoost & LightGBM** | Strong alternatives for ensemble diversity. |
-| **Scikit-learn** | Preprocessing, pipelines, and meta-model. |
-| **Optuna** | Hyperparameter optimization (if run). |
-| **SHAP** | Model interpretation and sanity checks. |
-| **Matplotlib & Seaborn** | All visualizations. |
-| **Git & GitHub** | Version control and collaboration. |
-
----
-
-## 📁 Project Structure
+## Project Structure
 
 ```text
 titanic/
-├── src/                         # All source code
-│   ├── config.py                # Central configuration
-│   ├── features.py              # Feature engineering
-│   ├── imputation.py            # Missing data handling
-│   ├── modeling.py              # Single model training
-│   ├── stacking.py              # Stacking Ensemble
-│   ├── interpret.py             # SHAP and sanity checks
-│   └── final_submission.py      # Generate submissions
+├── src/
+│   ├── config.py
+│   ├── eda.py
+│   ├── features.py
+│   ├── imputation.py
+│   ├── modeling.py
+│   ├── stacking.py
+│   ├── tune_hyperparams.py
+│   ├── interpret.py
+│   ├── generate_readme_figures.py
+│   └── final_submission.py
 ├── data/
-│   ├── raw/                     # Original data
-│   └── processed/               # Engineered data
-├── models/                      # Saved model metadata and artifacts
-├── submissions/                 # Submission CSVs
+│   ├── raw/
+│   └── processed/
+├── models/
+├── experiments/
 ├── reports/
-│   ├── figures/                 # Generated visualizations
-│   └── eda_summary.json
+│   └── figures/
+├── submissions/
 ├── requirements.txt
-├── .gitignore
 └── README.md
 ```
 
----
+Large/generated data, model binaries, caches, and figures are excluded from version
+control where appropriate by `.gitignore`.
 
-## 🚀 How to Run This Project
-
-### 1. Clone the Repository
+## Installation
 
 ```bash
 git clone https://github.com/AliAziziDH/titanic.git
 cd titanic
-```
-
-### 2. Set Up a Virtual Environment
-
-```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-```
-
-### 3. Install Dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 4. Download Data
+Place Kaggle's `train.csv` and `test.csv` in `data/raw/` for a local run. In Kaggle,
+the configured input directory is `/kaggle/input/competitions/titanic/`.
 
-Download `train.csv` and `test.csv` from the Kaggle Titanic competition and place them in `data/raw/`.
+## Usage
 
-In the Kaggle environment, the configured input path is `/kaggle/input/competitions/titanic/`.
-
-### 5. Run the Full Pipeline
+Run the stages in order:
 
 ```bash
+python -m src.eda
 python -m src.features
 python -m src.imputation
 python -m src.modeling
@@ -201,38 +182,46 @@ python -m src.interpret
 python -m src.final_submission
 ```
 
-### 6. Submit to Kaggle
+Generate the README visual reports:
+
+```bash
+python -m src.generate_readme_figures
+```
+
+Submit the preferred candidate with the Kaggle CLI:
 
 ```bash
 kaggle competitions submit -c titanic \
   -f submissions/submission_stacking.csv \
-  -m "Stacking Ensemble"
+  -m "Leakage-aware stacking ensemble"
 ```
 
----
+## Visual Reports
 
-## 📚 Key Takeaways
+The repository contains code to regenerate the figures from the saved data and model
+artifacts. Run `python -m src.generate_readme_figures` whenever the model or data is
+updated.
 
-### What Went Well
+![Feature importance](reports/figures/feature_importance.png)
 
-- **Stacking Ensemble** improved performance by combining diverse models.
-- **Feature Engineering** using Title, Deck, Family_Size, and Fare_per_Person had the biggest impact.
-- **Cross-validation-aware imputation** reduced the risk of data leakage.
-- **SHAP analysis** confirmed that model decisions were logically aligned with domain knowledge.
+![Confusion matrix](reports/figures/confusion_matrix.png)
 
-### What Didn't Work
+![ROC-AUC curve](reports/figures/roc_auc_curve.png)
 
-- **Simple individual models** underperformed compared with ensemble methods.
-- **MLP** added diversity but required strong regularization.
-- **Optuna tuning**, when run, was expected to provide incremental rather than transformational improvements.
+![Survival by sex and class](reports/figures/survival_by_sex_class.png)
 
-### Final Thought
+## Lessons Learned
 
-> "The best model is not the one with the highest CV score. It's the one that generalizes well, can be explained, and—most importantly—teaches you something new."
+- Feature engineering based on passenger context was more valuable than blindly
+  increasing model complexity.
+- OOF predictions are essential for a trustworthy stacking ensemble.
+- Imputation and preprocessing must be fitted within the validation boundary.
+- Train/test schema and feature semantics must remain identical at inference time.
+- SHAP and grouped error analysis make model behavior easier to challenge and improve.
+- A leaderboard score should be interpreted alongside robust local validation, not as a
+  substitute for it.
 
----
-
-## 👤 Author
+## Author
 
 **Ali Azizi Deh Sorkh**  
 Industrial Engineer | Data Science & Optimization Enthusiast
@@ -241,12 +230,10 @@ Industrial Engineer | Data Science & Optimization Enthusiast
 - Kaggle: [aliazizi1](https://www.kaggle.com/aliazizi1)
 - Email: aliazizi.academy@gmail.com
 
----
+## License
 
-## 📄 License
-
-This project is open-source and available under the MIT License.
+This project is released under the MIT License.
 
 ---
 
-*Built with ❤️, relentless debugging, and an obsession with data leakage.*
+Built with disciplined validation, reproducibility, and an obsession with data leakage.
