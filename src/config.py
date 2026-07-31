@@ -6,14 +6,18 @@ from typing import Optional
 
 
 # Keep this seed fixed for reproducible comparisons throughout the project.
-RANDOM_STATE = 42
+RANDOM_SEED = 42
+RANDOM_STATE = RANDOM_SEED
 
 
 # Project paths.
 BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
 DATA_RAW_DIR = BASE_DIR / "data" / "raw"
 DATA_PROCESSED_DIR = BASE_DIR / "data" / "processed"
+PROCESSED_DIR = DATA_PROCESSED_DIR
 MODELS_DIR = BASE_DIR / "models"
+SUBMISSIONS_DIR = BASE_DIR / "submissions"
 NOTEBOOKS_DIR = BASE_DIR / "notebooks"
 EXPERIMENTS_DIR = BASE_DIR / "experiments"
 KAGGLE_INPUT_DIR = Path("/kaggle/input/competitions/titanic")
@@ -89,9 +93,11 @@ LOGGER = logging.getLogger("titanic")
 def setup_directories() -> None:
     """Create project directories required by data processing and experiments."""
     for directory in (
+        DATA_DIR,
         DATA_RAW_DIR,
         DATA_PROCESSED_DIR,
         MODELS_DIR,
+        SUBMISSIONS_DIR,
         NOTEBOOKS_DIR,
         EXPERIMENTS_DIR,
     ):
