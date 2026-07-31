@@ -38,7 +38,8 @@ NUMERICAL_FEATURES = [
 ]
 CATEGORICAL_FEATURES = [
     "Sex", "Embarked", "Title_Num", "Title_Encoded", "Deck_Num", "Deck_Encoded",
-    "Deck_Group", "Sex_Pclass", "Title_Sex",
+    "Deck", "Deck_Group", "Family_Name", "Family_Size_Category", "Ticket_Prefix",
+    "Fare_Bin", "Age_Band", "Sex_Pclass", "Title_Sex",
 ]
 BINARY_FEATURES = ["Has_Cabin", "Is_Alone", "Is_Group", "Is_Mother"]
 

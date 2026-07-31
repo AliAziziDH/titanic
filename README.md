@@ -35,19 +35,22 @@ only from training data. The workflow is reproducible through a fixed seed of `4
 
 | Model | Repeated-CV ROC-AUC | Repeated-CV Accuracy |
 | --- | ---: | ---: |
-| CatBoost | **0.8775** | 0.8286 |
-| RandomForest | 0.8725 | 0.8264 |
-| XGBoost | 0.8717 | 0.8212 |
-| LightGBM | 0.8664 | 0.8099 |
+| CatBoost | **0.8875** | **0.8335** |
+| RandomForest | 0.8811 | 0.8301 |
+| XGBoost | 0.8713 | 0.8155 |
+| LightGBM | 0.8646 | 0.8081 |
 
 ### Stacking ensemble
 
 The stacker combines CatBoost, LightGBM, RandomForest, and a regularized MLP through a
-Logistic Regression meta-model trained on out-of-fold probabilities.
+Logistic Regression meta-model trained on out-of-fold probabilities. In the current
+feature configuration, the standalone CatBoost candidate has the strongest local
+accuracy and fold-mean ROC-AUC, so `submission_catboost.csv` is the recommended file
+to try first; `submission_stacking.csv` remains available for comparison.
 
-- OOF ROC-AUC: **0.8853**
-- OOF accuracy: **0.8373**
-- OOF macro-F1: **0.8250**
+- OOF ROC-AUC: **0.8882**
+- OOF accuracy: **0.8339**
+- OOF macro-F1: **0.8201**
 - Public Kaggle leaderboard score: **0.9099 (≈91% accuracy)**
 
 The leaderboard score is an external evaluation, while the OOF metrics are the
@@ -206,8 +209,8 @@ Submit the preferred candidate with the Kaggle CLI:
 
 ```bash
 kaggle competitions submit -c titanic \
-  -f submissions/submission_stacking.csv \
-  -m "Leakage-aware stacking ensemble"
+  -f submissions/submission_catboost.csv \
+  -m "Feature-enriched CatBoost"
 ```
 
 ## Visual Reports

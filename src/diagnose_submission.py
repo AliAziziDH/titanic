@@ -56,8 +56,8 @@ def _scan_source_for_leakage() -> Dict[str, Any]:
     }
     return {
         "feature_engineering_source_checks": feature_leakage_patterns,
-        "ticket_count_scope": "Each input DataFrame is counted independently; train/test ticket groups are not combined.",
-        "fare_bin_scope": "Fare quantiles are computed independently by engineer_features; this is a train/test schema consistency risk.",
+        "ticket_count_scope": "save_engineered_data computes ticket counts from the combined unlabeled train/test reference.",
+        "fare_bin_scope": "save_engineered_data computes fare-bin edges from the combined unlabeled train/test reference.",
     }
 
 

@@ -9,4 +9,5 @@ models/*.joblib
 reports/figures/
 experiments/*.npz
 submissions/*.csv
+!submissions/submission_catboost.csv
 catboost_info/
