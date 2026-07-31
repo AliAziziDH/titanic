@@ -1,0 +1,12 @@
+data/raw/
+data/processed/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+models/
+*.joblib
+.venv/
+reports/figures/
+experiments/
+catboost_info/
