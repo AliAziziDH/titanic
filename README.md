@@ -132,3 +132,121 @@ Here are some of the visual outputs from the EDA and interpretation phases. They
 | **SHAP** | Model interpretation and sanity checks. |
 | **Matplotlib & Seaborn** | All visualizations. |
 | **Git & GitHub** | Version control and collaboration. |
+
+---
+
+## 📁 Project Structure
+
+```text
+titanic/
+├── src/                         # All source code
+│   ├── config.py                # Central configuration
+│   ├── features.py              # Feature engineering
+│   ├── imputation.py            # Missing data handling
+│   ├── modeling.py              # Single model training
+│   ├── stacking.py              # Stacking Ensemble
+│   ├── interpret.py             # SHAP and sanity checks
+│   └── final_submission.py      # Generate submissions
+├── data/
+│   ├── raw/                     # Original data
+│   └── processed/               # Engineered data
+├── models/                      # Saved model metadata and artifacts
+├── submissions/                 # Submission CSVs
+├── reports/
+│   ├── figures/                 # Generated visualizations
+│   └── eda_summary.json
+├── requirements.txt
+├── .gitignore
+└── README.md
+```
+
+---
+
+## 🚀 How to Run This Project
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/AliAziziDH/titanic.git
+cd titanic
+```
+
+### 2. Set Up a Virtual Environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Download Data
+
+Download `train.csv` and `test.csv` from the Kaggle Titanic competition and place them in `data/raw/`.
+
+In the Kaggle environment, the configured input path is `/kaggle/input/competitions/titanic/`.
+
+### 5. Run the Full Pipeline
+
+```bash
+python -m src.features
+python -m src.imputation
+python -m src.modeling
+python -m src.stacking
+python -m src.interpret
+python -m src.final_submission
+```
+
+### 6. Submit to Kaggle
+
+```bash
+kaggle competitions submit -c titanic \
+  -f submissions/submission_stacking.csv \
+  -m "Stacking Ensemble"
+```
+
+---
+
+## 📚 Key Takeaways
+
+### What Went Well
+
+- **Stacking Ensemble** improved performance by combining diverse models.
+- **Feature Engineering** using Title, Deck, Family_Size, and Fare_per_Person had the biggest impact.
+- **Cross-validation-aware imputation** reduced the risk of data leakage.
+- **SHAP analysis** confirmed that model decisions were logically aligned with domain knowledge.
+
+### What Didn't Work
+
+- **Simple individual models** underperformed compared with ensemble methods.
+- **MLP** added diversity but required strong regularization.
+- **Optuna tuning**, when run, was expected to provide incremental rather than transformational improvements.
+
+### Final Thought
+
+> "The best model is not the one with the highest CV score. It's the one that generalizes well, can be explained, and—most importantly—teaches you something new."
+
+---
+
+## 👤 Author
+
+**Ali Azizi Deh Sorkh**  
+Industrial Engineer | Data Science & Optimization Enthusiast
+
+- GitHub: [AliAziziDH](https://github.com/AliAziziDH)
+- Kaggle: [aliazizi1](https://www.kaggle.com/aliazizi1)
+- Email: aliazizi.academy@gmail.com
+
+---
+
+## 📄 License
+
+This project is open-source and available under the MIT License.
+
+---
+
+*Built with ❤️, relentless debugging, and an obsession with data leakage.*
