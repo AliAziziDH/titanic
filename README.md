@@ -48,7 +48,7 @@ Logistic Regression meta-model trained on out-of-fold probabilities.
 - OOF ROC-AUC: **0.8836**
 - OOF accuracy: **0.8328**
 - OOF macro-F1: **0.8192**
-- Public Kaggle leaderboard score: **0.9099**
+- Public Kaggle leaderboard score: **0.9099 (≈91% accuracy)**
 
 The leaderboard score is an external evaluation, while the OOF metrics are the
 reproducible local validation results saved in `experiments/`.
@@ -208,7 +208,7 @@ updated.
 
 ![ROC-AUC curve](reports/figures/roc_auc_curve.png)
 
-![Survival by sex and class](reports/figures/survival_by_sex_class.png)
+![Survival distribution comparison](reports/figures/survival_comparison.png)
 
 ## Lessons Learned
 
