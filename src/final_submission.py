@@ -93,7 +93,7 @@ def _load_stacking_models() -> tuple[Dict[str, Any], Any]:
         if path.exists():
             base[name] = joblib.load(path)
     meta_path = Path(MODELS_DIR) / "stacking_meta_model.joblib"
-    if not base or not meta_path.exists():
+    if set(base) != set(order) or not meta_path.exists():
         raise FileNotFoundError("Complete stacking model artifacts are not available")
     return {name: base[name] for name in order if name in base}, joblib.load(meta_path)
 

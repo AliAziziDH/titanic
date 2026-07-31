@@ -17,7 +17,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 
 from src.config import DATA_PROCESSED_DIR, EXPERIMENTS_DIR, MODELS_DIR, RANDOM_STATE, TARGET_COLUMN
-from src.modeling import build_preprocessor
+from src.modeling import build_preprocessor, load_modeling_data
 
 LOGGER = logging.getLogger("titanic.stacking")
 FEATURE_EXCLUSIONS = {TARGET_COLUMN, "PassengerId"}
@@ -105,8 +105,7 @@ def run_stacking_pipeline() -> pd.DataFrame:
     """Train the OOF stacker and create the stacking submission."""
     Path(MODELS_DIR).mkdir(parents=True, exist_ok=True)
     Path(EXPERIMENTS_DIR).mkdir(parents=True, exist_ok=True)
-    train = pd.read_csv(Path(DATA_PROCESSED_DIR) / "train_clean.csv")
-    test = pd.read_csv(Path(DATA_PROCESSED_DIR) / "test_clean.csv")
+    train, test = load_modeling_data()
     features = [column for column in train.columns if column not in FEATURE_EXCLUSIONS]
     X_train, y_train = train[features], train[TARGET_COLUMN].astype(int)
     X_test = test[features]
@@ -120,7 +119,20 @@ def run_stacking_pipeline() -> pd.DataFrame:
 
     stacker = LogisticRegression(random_state=RANDOM_STATE, max_iter=1000)
     stacker.fit(oof, y_train)
-    stack_metrics = _metrics(y_train, stacker.predict_proba(oof)[:, 1])
+    meta_cv = RepeatedStratifiedKFold(
+        n_splits=5, n_repeats=1, random_state=RANDOM_STATE
+    )
+    meta_probabilities = np.empty(len(y_train), dtype=float)
+    for fit_idx, valid_idx in meta_cv.split(oof, y_train):
+        meta_fold = clone(stacker)
+        meta_fold.fit(oof.iloc[fit_idx], y_train.iloc[fit_idx])
+        meta_probabilities[valid_idx] = meta_fold.predict_proba(
+            oof.iloc[valid_idx]
+        )[:, 1]
+    stack_metrics = _metrics(y_train, meta_probabilities)
+    stack_metrics["training_metrics"] = _metrics(
+        y_train, stacker.predict_proba(oof)[:, 1]
+    )
     LOGGER.info("Stacker OOF metrics: %s", stack_metrics)
 
     test_base = pd.DataFrame({

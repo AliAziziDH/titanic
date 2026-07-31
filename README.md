@@ -35,23 +35,25 @@ only from training data. The workflow is reproducible through a fixed seed of `4
 
 | Model | Repeated-CV ROC-AUC | Repeated-CV Accuracy |
 | --- | ---: | ---: |
-| CatBoost | **0.8794** | 0.8253 |
-| RandomForest | 0.8733 | 0.8204 |
-| XGBoost | 0.8712 | 0.8197 |
-| LightGBM | 0.8664 | 0.8077 |
+| CatBoost | **0.8775** | 0.8286 |
+| RandomForest | 0.8725 | 0.8264 |
+| XGBoost | 0.8717 | 0.8212 |
+| LightGBM | 0.8664 | 0.8099 |
 
 ### Stacking ensemble
 
 The stacker combines CatBoost, LightGBM, RandomForest, and a regularized MLP through a
 Logistic Regression meta-model trained on out-of-fold probabilities.
 
-- OOF ROC-AUC: **0.8836**
-- OOF accuracy: **0.8328**
-- OOF macro-F1: **0.8192**
+- OOF ROC-AUC: **0.8853**
+- OOF accuracy: **0.8373**
+- OOF macro-F1: **0.8250**
 - Public Kaggle leaderboard score: **0.9099 (≈91% accuracy)**
 
 The leaderboard score is an external evaluation, while the OOF metrics are the
-reproducible local validation results saved in `experiments/`.
+reproducible local validation results saved in `experiments/`. The leaderboard score
+belongs to the submitted artifact available at the time and should be revalidated if
+the feature or model configuration changes.
 
 ## Methodology
 
@@ -81,11 +83,16 @@ column is used to construct features.
 
 ### 3. Imputation: filling missing values without shortcuts
 
-Age is predicted with a `RandomForestRegressor` using demographic and ticket-derived
-features. The model is evaluated with repeated stratified folds and then fitted on the
-known training ages for final missing-value predictions. Fare uses a train-derived
-conditional median by class and embarkation, while Embarked uses class and fare logic
-with a mode fallback.
+The standalone data-preparation command can predict missing Age values with a
+`RandomForestRegressor`, using demographic and ticket-derived features. For model
+validation, however, the modeling and stacking commands deliberately consume the
+engineered data before materialized imputation: `SimpleImputer`, scaling, and encoding
+are fitted inside each training fold and then applied to that fold's validation rows.
+This keeps Age and all other preprocessing statistics inside the validation boundary.
+The final-submission utility may materialize clean data for inference, where it is
+fitted using the complete training set only. Fare uses a train-derived conditional
+median by class and embarkation, while Embarked uses class and fare logic with a mode
+fallback.
 
 The important lesson is that an imputer is part of the model, not a preliminary step
 that can inspect all data indiscriminately.
@@ -184,8 +191,10 @@ python -m src.final_submission
 ```
 
 `modeling.py` and `stacking.py` create the required model artifacts locally; binary
-model files are intentionally excluded from GitHub. Run those stages before
-`interpret.py` or `final_submission.py` on a fresh clone.
+model files are intentionally excluded from GitHub. They load `train_engineered.csv`
+and `test_engineered.csv` (or rebuild them from `data/raw/`) so fold-level
+preprocessing remains leakage-aware. Run those stages before `interpret.py` or
+`final_submission.py` on a fresh clone.
 
 Generate the README visual reports:
 

@@ -21,11 +21,13 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from src.config import (
     DATA_PROCESSED_DIR,
     EXPERIMENTS_DIR,
+    get_input_dir,
     LIGHTGBM_PARAMS,
     MODELS_DIR,
     RANDOM_STATE,
     TARGET_COLUMN,
 )
+from src.features import save_engineered_data
 
 LOGGER = logging.getLogger("titanic.modeling")
 MODEL_DIR = Path(MODELS_DIR)
@@ -39,6 +41,22 @@ CATEGORICAL_FEATURES = [
     "Deck_Group", "Sex_Pclass", "Title_Sex",
 ]
 BINARY_FEATURES = ["Has_Cabin", "Is_Alone", "Is_Group", "Is_Mother"]
+
+
+def load_modeling_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Load engineered data so every fold imputes from its own training rows."""
+    train_path = Path(DATA_PROCESSED_DIR) / "train_engineered.csv"
+    test_path = Path(DATA_PROCESSED_DIR) / "test_engineered.csv"
+    if train_path.exists() and test_path.exists():
+        return pd.read_csv(train_path), pd.read_csv(test_path)
+
+    input_dir = get_input_dir()
+    raw_train = pd.read_csv(input_dir / "train.csv")
+    raw_test = pd.read_csv(input_dir / "test.csv")
+    train_engineered_path, test_engineered_path = save_engineered_data(
+        raw_train, raw_test
+    )
+    return pd.read_csv(train_engineered_path), pd.read_csv(test_engineered_path)
 
 
 def _available_columns(frame: pd.DataFrame) -> Tuple[list[str], list[str], list[str]]:
@@ -163,8 +181,7 @@ def run_modeling_pipeline() -> pd.DataFrame:
     """Train candidate models, select the best, and write a Kaggle submission."""
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     Path(EXPERIMENTS_DIR).mkdir(parents=True, exist_ok=True)
-    train = pd.read_csv(Path(DATA_PROCESSED_DIR) / "train_clean.csv")
-    test = pd.read_csv(Path(DATA_PROCESSED_DIR) / "test_clean.csv")
+    train, test = load_modeling_data()
     if TARGET_COLUMN not in train:
         raise ValueError(f"{TARGET_COLUMN} is missing from training data")
     feature_columns = [column for column in train.columns if column not in {TARGET_COLUMN, "PassengerId"}]
