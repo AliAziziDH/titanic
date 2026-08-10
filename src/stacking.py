@@ -24,7 +24,7 @@ from src.config import (
     SUBMISSIONS_DIR,
     TARGET_COLUMN,
 )
-from src.modeling import build_preprocessor, load_modeling_data
+from src.modeling import build_preprocessor, load_modeling_data, WCGSurvivalEncoder, AgeImputer
 
 LOGGER = logging.getLogger("titanic.stacking")
 FEATURE_EXCLUSIONS = {TARGET_COLUMN, "PassengerId"}
@@ -47,7 +47,8 @@ def _base_models() -> Dict[str, Any]:
         from catboost import CatBoostClassifier
 
         models["CatBoost"] = CatBoostClassifier(
-            iterations=500, learning_rate=0.05, depth=6,
+            iterations=500, learning_rate=0.05, depth=4,
+            l2_leaf_reg=50.0, subsample=0.7,
             random_seed=RANDOM_STATE, verbose=False, task_type="CPU",
         )
     except ImportError:
@@ -57,15 +58,34 @@ def _base_models() -> Dict[str, Any]:
 
         models["LightGBM"] = LGBMClassifier(
             n_estimators=500, learning_rate=0.05, num_leaves=31,
+            max_depth=4, reg_lambda=50.0,
+            subsample=0.7, colsample_bytree=0.7,
             random_state=RANDOM_STATE, device="cpu", verbosity=-1,
         )
     except ImportError:
         LOGGER.warning("LightGBM is unavailable; skipping it")
+
+    try:
+        from xgboost import XGBClassifier
+
+        models["XGBoost"] = XGBClassifier(
+            n_estimators=500, learning_rate=0.05, max_depth=4,
+            reg_lambda=50.0, subsample=0.7, colsample_bytree=0.7,
+            random_state=RANDOM_STATE, tree_method="hist", eval_metric="logloss",
+        )
+    except ImportError:
+        LOGGER.warning("XGBoost is unavailable; skipping it")
+
     return models
 
 
 def _pipeline(model: Any, frame: pd.DataFrame) -> Pipeline:
-    return Pipeline([("preprocessor", build_preprocessor(frame)), ("model", model)])
+    return Pipeline([
+        ("wcg_encoder", WCGSurvivalEncoder()),
+        ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
+        ("preprocessor", build_preprocessor(frame)),
+        ("model", model)
+    ])
 
 
 def _metrics(y_true: pd.Series, probabilities: np.ndarray) -> Dict[str, float]:
