@@ -49,6 +49,7 @@ def _extract_deck(df: pd.DataFrame) -> pd.DataFrame:
 def _extract_family_name(df: pd.DataFrame) -> pd.DataFrame:
     """Extract the surname portion of each passenger name."""
     df["Family_Name"] = df["Name"].str.split(",", n=1).str[0].str.strip()
+    df["Last_Name"] = df["Family_Name"]
     return df
 
 
@@ -76,16 +77,16 @@ def _create_family_features(df: pd.DataFrame) -> pd.DataFrame:
 def _create_ticket_features(df: pd.DataFrame, reference: pd.DataFrame | None = None) -> pd.DataFrame:
     """Create passenger count and group indicators for each ticket."""
     ticket_counts = (reference if reference is not None else df)["Ticket"].value_counts(dropna=False)
-    df["Ticket_Count"] = df["Ticket"].map(ticket_counts)
-    df["Ticket_Count"] = df["Ticket_Count"].fillna(1).astype("int64")
-    df["Is_Group"] = (df["Ticket_Count"] > 1).astype("int8")
+    df["Ticket_Frequency"] = df["Ticket"].map(ticket_counts)
+    df["Ticket_Frequency"] = df["Ticket_Frequency"].fillna(1).astype("int64")
+    df["Is_Group"] = (df["Ticket_Frequency"] > 1).astype("int8")
     return df
 
 
 def _create_fare_features(df: pd.DataFrame, reference: pd.DataFrame | None = None) -> pd.DataFrame:
     """Create per-person fare and quantile-based fare category."""
-    family_size = df["Family_Size"].replace(0, 1)
-    df["Fare_per_Person"] = df["Fare"] / family_size
+    ticket_freq = df["Ticket_Frequency"].replace(0, 1)
+    df["Price"] = df["Fare"] / ticket_freq
     try:
         reference_fare = (reference if reference is not None else df)["Fare"].dropna()
         quantiles = reference_fare.quantile([0, 0.25, 0.5, 0.75, 1]).to_numpy()
@@ -118,6 +119,23 @@ def _create_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
     df["Deck_Group"] = df["Deck"].map(
         lambda deck: "High" if deck in {"A", "B", "C"} else "Low" if deck in {"D", "E", "F", "G"} else "U"
     )
+
+    # WCG Features
+    df["WCG_Member"] = (
+        df["Sex"].eq("female") |
+        (df["Sex"].eq("male") & df["Age"].le(18)) |
+        df["Title"].eq("Master")
+    ).astype("int8")
+
+    # Generate Group_ID string correctly
+    # Concatenating string values, replacing na to avoid nulls spoiling it
+    # Note: Age and Embarked might be null. For Embarked we can fill with ''
+    df["Group_ID"] = (
+        df["Last_Name"].astype(str) + "_" +
+        df["Ticket"].astype(str) + "_" +
+        df["Fare"].fillna(-1).astype(str) + "_" +
+        df["Embarked"].fillna("").astype(str)
+    )
     return df
 
 
@@ -144,6 +162,7 @@ def engineer_features(df: pd.DataFrame, reference_df: pd.DataFrame | None = None
         "Title",
         "Title_Encoded",
         "Family_Name",
+        "Last_Name",
         "Deck",
         "Deck_Encoded",
         "Has_Cabin",
@@ -151,15 +170,17 @@ def engineer_features(df: pd.DataFrame, reference_df: pd.DataFrame | None = None
         "Family_Size",
         "Is_Alone",
         "Family_Size_Category",
-        "Ticket_Count",
+        "Ticket_Frequency",
         "Is_Group",
         "Ticket_Prefix",
-        "Fare_per_Person",
+        "Price",
         "Fare_Bin",
         "Sex_Pclass",
         "Title_Sex",
         "Is_Mother",
         "Age_Band",
+        "WCG_Member",
+        "Group_ID"
     ]
     if TARGET_COLUMN in engineered.columns:
         columns.insert(1, TARGET_COLUMN)

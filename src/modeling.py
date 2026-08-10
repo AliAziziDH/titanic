@@ -17,6 +17,7 @@ from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.base import BaseEstimator, TransformerMixin
 
 from src.config import (
     DATA_PROCESSED_DIR,
@@ -35,14 +36,92 @@ MODEL_DIR = Path(MODELS_DIR)
 CV_RESULTS_PATH = Path(EXPERIMENTS_DIR) / "cv_results.json"
 
 NUMERICAL_FEATURES = [
-    "Age", "Fare", "SibSp", "Parch", "Family_Size", "Ticket_Count", "Fare_per_Person",
+    "Age", "Fare", "SibSp", "Parch", "Family_Size", "Ticket_Frequency", "Price", "WCG_Survival",
 ]
 CATEGORICAL_FEATURES = [
     "Sex", "Embarked", "Title_Num", "Title_Encoded", "Deck_Num", "Deck_Encoded",
-    "Deck", "Deck_Group", "Family_Name", "Family_Size_Category", "Ticket_Prefix",
-    "Fare_Bin", "Age_Band", "Sex_Pclass", "Title_Sex",
+    "Deck", "Deck_Group", "Family_Name", "Last_Name", "Family_Size_Category", "Ticket_Prefix",
+    "Fare_Bin", "Age_Band", "Sex_Pclass", "Title_Sex", "Group_ID",
 ]
-BINARY_FEATURES = ["Has_Cabin", "Is_Alone", "Is_Group", "Is_Mother"]
+BINARY_FEATURES = ["Has_Cabin", "Is_Alone", "Is_Group", "Is_Mother", "WCG_Member"]
+
+
+class WCGSurvivalEncoder(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        self.group_survival = {}
+        self.default_rate = 0.5
+
+    def fit(self, X, y=None):
+        if y is None or 'Group_ID' not in X or 'WCG_Member' not in X:
+            return self
+
+        df = X.copy()
+        df['Survived'] = y
+
+        # Only groups where WCG members exist
+        wcg_df = df[df['WCG_Member'] == 1]
+        if len(wcg_df) > 0:
+            self.group_survival = wcg_df.groupby('Group_ID')['Survived'].mean().to_dict()
+
+        return self
+
+    def transform(self, X):
+        df = X.copy()
+        if 'Group_ID' not in df or 'WCG_Member' not in df:
+            df['WCG_Survival'] = self.default_rate
+            return df
+
+        def map_rate(row):
+            if row['WCG_Member'] == 1 and row['Group_ID'] in self.group_survival:
+                return self.group_survival[row['Group_ID']]
+            return self.default_rate
+
+        df['WCG_Survival'] = df.apply(map_rate, axis=1)
+        return df
+
+
+class AgeImputer(BaseEstimator, TransformerMixin):
+    def __init__(self, random_state=42):
+        self.random_state = random_state
+        self.imputer = None
+        self.available_cols = []
+        self.sex_map = False
+
+    def fit(self, X, y=None):
+        from sklearn.experimental import enable_iterative_imputer
+        from sklearn.impute import IterativeImputer
+        self.imputer = IterativeImputer(random_state=self.random_state)
+
+        # Features to conditionally group by / use for imputing
+        cols_to_use = ['Age', 'Pclass', 'Title_Encoded']
+        X_temp = X.copy()
+        if 'Sex' in X_temp.columns:
+            if X_temp['Sex'].dtype == 'O' or X_temp['Sex'].dtype == 'string':
+                self.sex_map = True
+                X_temp['Sex'] = X_temp['Sex'].map({'male': 0, 'female': 1})
+            cols_to_use.append('Sex')
+
+        # Only fit on available cols
+        self.available_cols = [c for c in cols_to_use if c in X_temp.columns]
+
+        if len(self.available_cols) > 0 and 'Age' in self.available_cols:
+            self.imputer.fit(X_temp[self.available_cols])
+        else:
+            self.imputer = None
+
+        return self
+
+    def transform(self, X):
+        df = X.copy()
+        if self.imputer is not None and 'Age' in df.columns:
+            if self.sex_map and 'Sex' in df.columns:
+                df['Sex'] = df['Sex'].map({'male': 0, 'female': 1})
+            # fill missing
+            imputed = self.imputer.transform(df[self.available_cols])
+            df['Age'] = imputed[:, self.available_cols.index('Age')]
+            if self.sex_map and 'Sex' in X.columns:
+                df['Sex'] = X['Sex'] # restore original
+        return df
 
 
 def load_modeling_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -95,7 +174,8 @@ def _optional_models() -> Dict[str, Any]:
         from catboost import CatBoostClassifier
 
         models["CatBoost"] = CatBoostClassifier(
-            iterations=500, learning_rate=0.05, depth=6,
+            iterations=500, learning_rate=0.05, depth=4,
+            l2_leaf_reg=50.0, subsample=0.7,
             random_seed=RANDOM_STATE, verbose=False, task_type="CPU",
         )
     except ImportError:
@@ -104,7 +184,8 @@ def _optional_models() -> Dict[str, Any]:
         from xgboost import XGBClassifier
 
         models["XGBoost"] = XGBClassifier(
-            n_estimators=500, learning_rate=0.05, max_depth=6,
+            n_estimators=500, learning_rate=0.05, max_depth=4,
+            reg_lambda=50.0, subsample=0.7, colsample_bytree=0.7,
             random_state=RANDOM_STATE, tree_method="hist", eval_metric="logloss",
         )
     except ImportError:
@@ -113,7 +194,11 @@ def _optional_models() -> Dict[str, Any]:
         from lightgbm import LGBMClassifier
 
         params = dict(LIGHTGBM_PARAMS)
-        params.update({"device": "cpu", "verbosity": -1})
+        params.update({
+            "device": "cpu", "verbosity": -1,
+            "max_depth": 4, "reg_lambda": 50.0,
+            "subsample": 0.7, "colsample_bytree": 0.7
+        })
         models["LightGBM"] = LGBMClassifier(**params)
     except ImportError:
         LOGGER.warning("LightGBM is unavailable; skipping it")
@@ -140,6 +225,8 @@ def evaluate_model(
     scores = {"accuracy": [], "roc_auc": [], "f1_macro": []}
     for fold, (fit_idx, validation_idx) in enumerate(cv_strategy.split(X_train, y_train), start=1):
         pipeline = Pipeline([
+            ("wcg_encoder", WCGSurvivalEncoder()),
+            ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
             ("preprocessor", build_preprocessor(X_train)),
             ("model", clone(model)),
         ])
@@ -199,6 +286,8 @@ def run_modeling_pipeline() -> pd.DataFrame:
     best = _select_best(results)
     best_model = default_models()[best["model"]]
     final_pipeline = Pipeline([
+        ("wcg_encoder", WCGSurvivalEncoder()),
+        ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
         ("preprocessor", build_preprocessor(X_train)),
         ("model", best_model),
     ])

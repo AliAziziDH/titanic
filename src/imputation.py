@@ -23,10 +23,10 @@ AGE_FEATURES = [
     "Sex",
     "SibSp",
     "Parch",
-    "Fare_per_Person",
+    "Price",
     "Is_Mother",
     "Is_Alone",
-    "Ticket_Count",
+    "Ticket_Frequency",
 ]
 
 
@@ -159,8 +159,8 @@ def impute_fare(test_df: pd.DataFrame, train_df: pd.DataFrame) -> pd.DataFrame:
         if candidates.empty:
             candidates = train_df[train_df["Pclass"].eq(row["Pclass"])]["Fare"].dropna()
         test_clean.loc[index, "Fare"] = candidates.median() if not candidates.empty else global_median
-    if "Family_Size" in test_clean:
-        test_clean["Fare_per_Person"] = test_clean["Fare"] / test_clean["Family_Size"].replace(0, 1)
+    if "Ticket_Frequency" in test_clean:
+        test_clean["Price"] = test_clean["Fare"] / test_clean["Ticket_Frequency"].replace(0, 1)
     if "Fare_Bin" in test_clean:
         quantiles = train_df["Fare"].dropna().quantile([0, 0.25, 0.5, 0.75, 1]).to_numpy()
         edges = np.unique(quantiles)
