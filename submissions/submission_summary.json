@@ -1,38 +1,32 @@
 {
-  "generated_at": "2026-07-31T18:55:51.747096+00:00",
+  "generated_at": "2026-08-10T16:48:57.732054+00:00",
   "scores": {
     "CatBoost": {
-      "accuracy": 0.8334986295064132,
-      "roc_auc": 0.8874506118459521
+      "accuracy": 0.826014269872157,
+      "roc_auc": 0.8796437716520894
     },
     "XGBoost": {
-      "accuracy": 0.8155378402694956,
-      "roc_auc": 0.8712916033561168
+      "accuracy": 0.8301299353461804,
+      "roc_auc": 0.8831206495846092
     },
     "LightGBM": {
-      "accuracy": 0.8080534806352395,
-      "roc_auc": 0.8645759775184445
+      "accuracy": 0.8297637729374595,
+      "roc_auc": 0.878577319808754
     },
     "RandomForest": {
-      "accuracy": 0.8301362124160441,
-      "roc_auc": 0.8811164911746813
+      "accuracy": 0.8316259703303833,
+      "roc_auc": 0.8770063288034147
     },
     "Stacking": {
-      "accuracy": 0.8338945005611672,
-      "roc_auc": 0.8882044972784117
+      "accuracy": 0.8361391694725028,
+      "roc_auc": 0.8876692338009564
     }
   },
   "submissions": {
-    "CatBoost": "/kaggle/working/titanic/submissions/submission_catboost.csv",
-    "Stacking": "/kaggle/working/titanic/submissions/submission_stacking.csv",
-    "WeightedEnsemble": "/kaggle/working/titanic/submissions/submission_weighted_ensemble.csv",
-    "MajorityVote": "/kaggle/working/titanic/submissions/submission_majority_vote.csv"
-  },
-  "latest_kaggle_public_scores": {
-    "submission_catboost.csv": 0.77511,
-    "submission_stacking.csv": 0.77033,
-    "submission_weighted_ensemble.csv": 0.77511,
-    "submission_majority_vote.csv": 0.77511
+    "XGBoost": "/app/submissions/submission_xgboost.csv",
+    "Stacking": "/app/submissions/submission_stacking.csv",
+    "WeightedEnsemble": "/app/submissions/submission_weighted_ensemble.csv",
+    "MajorityVote": "/app/submissions/submission_majority_vote.csv"
   },
   "rows": 418
 }

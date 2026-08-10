@@ -144,34 +144,58 @@ def run_stacking_pipeline() -> pd.DataFrame:
     oof_path = Path(EXPERIMENTS_DIR) / "oof_predictions.npz"
     np.savez(oof_path, predictions=oof.to_numpy(), target=y_train.to_numpy())
 
-    stacker = LogisticRegression(random_state=RANDOM_STATE, max_iter=1000)
-    stacker.fit(oof, y_train)
-    meta_cv = RepeatedStratifiedKFold(
-        n_splits=5, n_repeats=1, random_state=RANDOM_STATE
-    )
-    meta_probabilities = np.empty(len(y_train), dtype=float)
-    for fit_idx, valid_idx in meta_cv.split(oof, y_train):
-        meta_fold = clone(stacker)
-        meta_fold.fit(oof.iloc[fit_idx], y_train.iloc[fit_idx])
-        meta_probabilities[valid_idx] = meta_fold.predict_proba(
-            oof.iloc[valid_idx]
-        )[:, 1]
+    from scipy.optimize import minimize
+    from sklearn.metrics import log_loss
+
+    # We specifically optimize on XGBoost, LightGBM, and CatBoost
+    blend_models = ["XGBoost", "LightGBM", "CatBoost"]
+    blend_models = [m for m in blend_models if m in oof.columns]
+
+    if not blend_models:
+        LOGGER.warning("None of the target blend models found; falling back to uniform weights.")
+        optimal_weights = np.ones(oof.shape[1]) / oof.shape[1]
+        blend_oof = oof
+    else:
+        blend_oof = oof[blend_models]
+        LOGGER.info("OOF Check - NaN count: %s, Data types: %s, Min: %s, Max: %s", blend_oof.isna().sum().to_dict(), blend_oof.dtypes.to_dict(), blend_oof.min().to_dict(), blend_oof.max().to_dict())
+        def loss_func(weights):
+            blended = np.dot(blend_oof, weights)
+            return log_loss(y_train, blended)
+
+        initial_weights = np.ones(len(blend_models)) / len(blend_models)
+        bounds = [(0, 1) for _ in range(len(blend_models))]
+        constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
+
+        res = minimize(loss_func, initial_weights, method="SLSQP", bounds=bounds, constraints=constraints)
+        optimal_weights = res.x
+        LOGGER.info("Optimized Blend Weights: %s", dict(zip(blend_models, optimal_weights)))
+
+    meta_probabilities = np.dot(blend_oof, optimal_weights)
     stack_metrics = _metrics(y_train, meta_probabilities)
-    stack_metrics["training_metrics"] = _metrics(
-        y_train, stacker.predict_proba(oof)[:, 1]
-    )
-    LOGGER.info("Stacker OOF metrics: %s", stack_metrics)
+    stack_metrics["training_metrics"] = _metrics(y_train, meta_probabilities) # Optimization ran on full OOF directly
+    LOGGER.info("SLSQP Blend OOF metrics: %s", stack_metrics)
 
     test_base = pd.DataFrame({
+        name: full_models[name].predict_proba(X_test)[:, 1] for name in blend_models
+    }) if blend_models else pd.DataFrame({
         name: model.predict_proba(X_test)[:, 1] for name, model in full_models.items()
     })
-    test_predictions = stacker.predict_proba(test_base)[:, 1]
+
+    test_predictions = np.dot(test_base, optimal_weights)
     submission = pd.DataFrame({
         "PassengerId": test["PassengerId"],
         TARGET_COLUMN: (test_predictions >= 0.5).astype(int),
     })
+
     submission_path = Path(SUBMISSIONS_DIR) / "submission_stacking.csv"
     submission.to_csv(submission_path, index=False)
+
+    submission_prob = pd.DataFrame({
+        "PassengerId": test["PassengerId"],
+        TARGET_COLUMN: test_predictions,
+    })
+    submission_prob_path = Path(SUBMISSIONS_DIR) / "submission_blend_probabilities.csv"
+    submission_prob.to_csv(submission_prob_path, index=False)
 
     results: Dict[str, Any] = {
         "base_models": {
@@ -190,7 +214,7 @@ def run_stacking_pipeline() -> pd.DataFrame:
     )
     for name, model in full_models.items():
         joblib.dump(model, Path(MODELS_DIR) / f"stacking_{name.lower()}.joblib")
-    joblib.dump(stacker, Path(MODELS_DIR) / "stacking_meta_model.joblib")
+    joblib.dump(optimal_weights, Path(MODELS_DIR) / "stacking_meta_model.joblib")
     LOGGER.info("Stacking submission saved to %s", submission_path)
     return submission
 

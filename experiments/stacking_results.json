@@ -1,38 +1,43 @@
 {
   "base_models": {
     "RandomForest": {
-      "accuracy": 0.8327537505492437,
-      "roc_auc": 0.882253645230076,
-      "f1_macro": 0.8206194510838156
+      "accuracy": 0.830525390747599,
+      "roc_auc": 0.8752040507612552,
+      "f1_macro": 0.8182639565023315
     },
     "MLP": {
-      "accuracy": 0.8215491808423827,
-      "roc_auc": 0.8718245419065476,
-      "f1_macro": 0.8059109711875377
+      "accuracy": 0.8282844768062269,
+      "roc_auc": 0.8780989486123346,
+      "f1_macro": 0.8167818446400499
     },
     "CatBoost": {
-      "accuracy": 0.8360994287866423,
-      "roc_auc": 0.8895721196336532,
-      "f1_macro": 0.8225252328542286
+      "accuracy": 0.8271357730211537,
+      "roc_auc": 0.8843406803197038,
+      "f1_macro": 0.8143118059260207
     },
     "LightGBM": {
-      "accuracy": 0.811405435942502,
-      "roc_auc": 0.8710168409025139,
-      "f1_macro": 0.8000578067003588
+      "accuracy": 0.8327474734793798,
+      "roc_auc": 0.8800010949732904,
+      "f1_macro": 0.819277302606525
+    },
+    "XGBoost": {
+      "accuracy": 0.8349821103508882,
+      "roc_auc": 0.8899642036166826,
+      "f1_macro": 0.8225622312147877
     }
   },
   "stacker": {
-    "accuracy": 0.8338945005611672,
-    "roc_auc": 0.8882044972784117,
-    "f1_macro": 0.820066805663199,
+    "accuracy": 0.8361391694725028,
+    "roc_auc": 0.8876692338009564,
+    "f1_macro": 0.8236628928362287,
     "training_metrics": {
-      "accuracy": 0.8305274971941639,
-      "roc_auc": 0.8911444519008512,
-      "f1_macro": 0.817029934028453
+      "accuracy": 0.8361391694725028,
+      "roc_auc": 0.8876692338009564,
+      "f1_macro": 0.8236628928362287
     }
   },
   "submission": {
-    "path": "/kaggle/working/titanic/submissions/submission_stacking.csv",
+    "path": "/app/submissions/submission_stacking.csv",
     "rows": 418
   }
 }
