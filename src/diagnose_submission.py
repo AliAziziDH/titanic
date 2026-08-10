@@ -78,7 +78,7 @@ def _check_distributions(train: pd.DataFrame, test: pd.DataFrame, submission: pd
 def _check_model_preprocessing(test: pd.DataFrame) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
     model_path = Path(MODELS_DIR) / "stacking_meta_model.joblib"
-    expected_order = ["RandomForest", "MLP", "CatBoost", "LightGBM"]
+    expected_order = ["RandomForest", "MLP", "CatBoost", "LightGBM", "XGBoost"]
     base_paths = [
         Path(MODELS_DIR) / f"stacking_{name.lower()}.joblib"
         for name in expected_order
@@ -94,13 +94,24 @@ def _check_model_preprocessing(test: pd.DataFrame) -> Dict[str, Any]:
         return result
     try:
         predictions = []
-        for path in base_paths:
-            model = joblib.load(path)
-            predictions.append(model.predict_proba(test)[:, 1])
-        base = pd.DataFrame(np.column_stack(predictions))
         meta = joblib.load(model_path)
-        result["meta_input_shape"] = list(base.shape)
-        result["predictability_check"] = len(meta.predict_proba(base)) == len(test)
+
+        if isinstance(meta, np.ndarray):
+            blend_order = ["XGBoost", "LightGBM", "CatBoost"]
+            blend_paths = [Path(MODELS_DIR) / f"stacking_{n.lower()}.joblib" for n in blend_order]
+            for path in blend_paths:
+                model = joblib.load(path)
+                predictions.append(model.predict_proba(test)[:, 1])
+            base = pd.DataFrame(np.column_stack(predictions))
+            result["meta_input_shape"] = list(base.shape)
+            result["predictability_check"] = len(np.dot(base, meta)) == len(test)
+        else:
+            for path in base_paths:
+                model = joblib.load(path)
+                predictions.append(model.predict_proba(test)[:, 1])
+            base = pd.DataFrame(np.column_stack(predictions))
+            result["meta_input_shape"] = list(base.shape)
+            result["predictability_check"] = len(meta.predict_proba(base)) == len(test)
     except (ValueError, KeyError, OSError) as error:
         result["predictability_check"] = False
         result["error"] = str(error)

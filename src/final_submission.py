@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from src.config import DATA_PROCESSED_DIR, EXPERIMENTS_DIR, MODELS_DIR, TARGET_COLUMN, get_input_dir
+from src.modeling import WCGSurvivalEncoder, AgeImputer # Required for unpickling models
 
 LOGGER = logging.getLogger("titanic.final_submission")
 PROJECT_DIR = Path(__file__).resolve().parent.parent
@@ -86,14 +87,14 @@ def _load_individual_models() -> Dict[str, Any]:
 
 
 def _load_stacking_models() -> tuple[Dict[str, Any], Any]:
-    order = ["RandomForest", "MLP", "CatBoost", "LightGBM"]
+    order = ["RandomForest", "MLP", "CatBoost", "LightGBM", "XGBoost"]
     base = {}
     for name in order:
         path = Path(MODELS_DIR) / f"stacking_{name.lower()}.joblib"
         if path.exists():
             base[name] = joblib.load(path)
     meta_path = Path(MODELS_DIR) / "stacking_meta_model.joblib"
-    if set(base) != set(order) or not meta_path.exists():
+    if not meta_path.exists():
         raise FileNotFoundError("Complete stacking model artifacts are not available")
     return {name: base[name] for name in order if name in base}, joblib.load(meta_path)
 
@@ -114,10 +115,28 @@ def run_final_submission() -> Dict[str, Any]:
 
     try:
         base_models, meta_model = _load_stacking_models()
-        base_predictions = pd.DataFrame({
-            name: model.predict_proba(X_test)[:, 1] for name, model in base_models.items()
-        })
-        stack_probability = meta_model.predict_proba(base_predictions)[:, 1]
+
+        # Meta model is an array of SLSQP optimal weights
+        blend_models = ["XGBoost", "LightGBM", "CatBoost"]
+        blend_models = [m for m in blend_models if m in base_models.keys()]
+
+        if isinstance(meta_model, np.ndarray): # It's weights
+            if not blend_models:
+                base_predictions = pd.DataFrame({
+                    name: model.predict_proba(X_test)[:, 1] for name, model in base_models.items()
+                })
+                stack_probability = np.dot(base_predictions, meta_model)
+            else:
+                base_predictions = pd.DataFrame({
+                    name: base_models[name].predict_proba(X_test)[:, 1] for name in blend_models
+                })
+                stack_probability = np.dot(base_predictions, meta_model)
+        else:
+            base_predictions = pd.DataFrame({
+                name: model.predict_proba(X_test)[:, 1] for name, model in base_models.items()
+            })
+            stack_probability = meta_model.predict_proba(base_predictions)[:, 1]
+
         probabilities["Stacking"] = stack_probability
         paths["Stacking"] = str(_write_submission("stacking", passenger_ids, stack_probability))
     except FileNotFoundError as error:
