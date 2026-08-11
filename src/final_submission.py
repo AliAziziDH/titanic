@@ -37,6 +37,31 @@ def _load_clean_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     return clean_train, clean_test
 
 
+class WCGPostProcessor:
+    """Deterministic post-processor based on Woman-Child-Group survival."""
+
+    def __init__(self) -> None:
+        self.group_survival: Dict[str, float] = {}
+
+    def fit(self, train_df: pd.DataFrame) -> None:
+        wcg_train = train_df[train_df["WCG_Member"] == 1]
+        group_means = wcg_train.groupby("Group_ID")[TARGET_COLUMN].mean()
+        for gid, mean_surv in group_means.items():
+            if mean_surv == 1.0:
+                self.group_survival[gid] = 1.0
+            else:
+                self.group_survival[gid] = 0.0
+
+    def transform(self, test_df: pd.DataFrame, baseline_probs: np.ndarray) -> np.ndarray:
+        final_probs = baseline_probs.copy()
+        for idx in range(len(test_df)):
+            if test_df.iloc[idx]["WCG_Member"] == 1:
+                gid = test_df.iloc[idx]["Group_ID"]
+                if gid in self.group_survival:
+                    final_probs[idx] = self.group_survival[gid]
+        return final_probs
+
+
 def _load_scores() -> Dict[str, Dict[str, float]]:
     """Load ROC-AUC and accuracy scores for weighting and reporting."""
     scores: Dict[str, Dict[str, float]] = {}
@@ -136,6 +161,10 @@ def run_final_submission() -> Dict[str, Any]:
                 name: model.predict_proba(X_test)[:, 1] for name, model in base_models.items()
             })
             stack_probability = meta_model.predict_proba(base_predictions)[:, 1]
+
+        wcg_processor = WCGPostProcessor()
+        wcg_processor.fit(train)
+        stack_probability = wcg_processor.transform(test, stack_probability)
 
         probabilities["Stacking"] = stack_probability
         paths["Stacking"] = str(_write_submission("stacking", passenger_ids, stack_probability))
