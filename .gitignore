@@ -10,4 +10,5 @@ reports/figures/
 experiments/*.npz
 submissions/*.csv
 !submissions/submission_catboost.csv
+!submissions/submission_stacking.csv
 catboost_info/
