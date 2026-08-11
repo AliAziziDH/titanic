@@ -123,6 +123,11 @@ def _load_scores() -> Dict[str, Dict[str, float]]:
 
 
 def _write_submission(name: str, passenger_ids: pd.Series, probabilities: np.ndarray) -> Path:
+    if len(passenger_ids) != 418:
+        raise ValueError(f"CRITICAL ERROR: Refusing to generate submission. Test data has {len(passenger_ids)} rows. Must be exactly 418!")
+    if not (passenger_ids.min() == 892 and passenger_ids.max() == 1309):
+        raise ValueError(f"CRITICAL ERROR: PassengerId range is {passenger_ids.min()}-{passenger_ids.max()}. Must be exactly 892-1309!")
+
     path = SUBMISSIONS_DIR / f"submission_{name.lower()}.csv"
     pd.DataFrame({
         "PassengerId": passenger_ids,
@@ -165,6 +170,14 @@ def run_final_submission() -> Dict[str, Any]:
     """Generate individual, stacking, weighted, and majority-vote submissions."""
     SUBMISSIONS_DIR.mkdir(parents=True, exist_ok=True)
     train, test = _load_clean_data()
+
+    # Guardrail checking
+    passenger_ids = test["PassengerId"]
+    if len(test) != 418:
+        raise ValueError(f"CRITICAL ERROR: Refusing to generate submission. Test data has {len(test)} rows. Must be exactly 418!")
+    if not (passenger_ids.min() == 892 and passenger_ids.max() == 1309):
+        raise ValueError(f"CRITICAL ERROR: PassengerId range is {passenger_ids.min()}-{passenger_ids.max()}. Must be exactly 892-1309!")
+
     features = [column for column in train.columns if column not in {TARGET_COLUMN, "PassengerId"}]
     X_test = test[features]
     passenger_ids = test["PassengerId"]
