@@ -48,28 +48,77 @@ BINARY_FEATURES = ["Has_Cabin", "Is_Alone", "Is_Group", "Is_Mother", "WCG_Member
 
 class WCGSurvivalEncoder(BaseEstimator, TransformerMixin):
     def __init__(self):
-        self.group_survival = {}
         self.default_rate = 0.5
+        self.pass1_groups = {}
+        self.pass2_groups = {}
 
     def fit(self, X, y=None):
-        if y is None or 'Group_ID' not in X or 'WCG_Member' not in X:
+        if y is None or 'Last_Name' not in X or 'Fare' not in X or 'Ticket' not in X:
             return self
 
         df = X.copy()
         df['Survived'] = y
 
-        # Only groups where WCG members exist
-        wcg_df = df[df['WCG_Member'] == 1]
-        if len(wcg_df) > 0:
-            self.group_survival = wcg_df.groupby('Group_ID')['Survived'].mean().to_dict()
+        # We store lists of (index, survival) for Pass 1 and Pass 2
+
+        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['Fare'].astype(str)
+        df['Pass2_Group'] = df['Ticket'].astype(str)
+
+        self.pass1_groups = df.groupby('Pass1_Group').apply(
+            lambda g: list(zip(g.index, g['Survived'])), include_groups=False
+        ).to_dict()
+
+        self.pass2_groups = df.groupby('Pass2_Group').apply(
+            lambda g: list(zip(g.index, g['Survived'])), include_groups=False
+        ).to_dict()
 
         return self
 
     def transform(self, X):
         df = X.copy()
-        if 'Group_ID' not in df or 'WCG_Member' not in df:
+        if 'Last_Name' not in df or 'Fare' not in df or 'Ticket' not in df:
             df['WCG_Survival'] = self.default_rate
             return df
+
+        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['Fare'].astype(str)
+        df['Pass2_Group'] = df['Ticket'].astype(str)
+
+        def calculate_survival(row):
+            # Pass 1
+            pass1_members = self.pass1_groups.get(row['Pass1_Group'], [])
+            # Exclude self
+            other_pass1 = [surv for idx, surv in pass1_members if idx != row.name]
+
+            if len(other_pass1) > 0:
+                max_surv = max(other_pass1)
+                min_surv = min(other_pass1)
+                if max_surv == 1.0:
+                    return 1.0
+                if min_surv == 0.0:
+                    return 0.0
+
+            # Pass 2
+            pass2_members = self.pass2_groups.get(row['Pass2_Group'], [])
+            # Exclude self
+            other_pass2 = [surv for idx, surv in pass2_members if idx != row.name]
+
+            if len(other_pass2) > 0:
+                max_surv = max(other_pass2)
+                min_surv = min(other_pass2)
+                if max_surv == 1.0:
+                    return 1.0
+                if min_surv == 0.0:
+                    return 0.0
+
+            return self.default_rate
+
+        df['WCG_Survival'] = df.apply(calculate_survival, axis=1)
+
+        # Clean up temporary columns
+        df.drop(columns=['Pass1_Group', 'Pass2_Group'], inplace=True, errors='ignore')
+
+        return df
+
 
         def map_rate(row):
             if row['WCG_Member'] == 1 and row['Group_ID'] in self.group_survival:

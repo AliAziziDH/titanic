@@ -20,7 +20,8 @@ MODELS_DIR = BASE_DIR / "models"
 SUBMISSIONS_DIR = BASE_DIR / "submissions"
 NOTEBOOKS_DIR = BASE_DIR / "notebooks"
 EXPERIMENTS_DIR = BASE_DIR / "experiments"
-KAGGLE_INPUT_DIR = Path("/kaggle/input/competitions/titanic")
+import os
+KAGGLE_INPUT_DIR = Path(os.environ.get("KAGGLE_INPUT_DIR", "/kaggle/input/competitions/titanic"))
 
 
 # Cross-validation settings.
