@@ -11,4 +11,4 @@ seaborn==0.13.2
 joblib==1.5.3
 tqdm==4.67.3
 # Optional GPU/MLP dependency; preinstalled in the Kaggle environment.
-torch==2.10.0+cu128
+torch>=2.2.0
