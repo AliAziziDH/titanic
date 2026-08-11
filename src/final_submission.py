@@ -41,24 +41,61 @@ class WCGPostProcessor:
     """Deterministic post-processor based on Woman-Child-Group survival."""
 
     def __init__(self) -> None:
-        self.group_survival: Dict[str, float] = {}
+        self.pass1_groups = {}
+        self.pass2_groups = {}
 
     def fit(self, train_df: pd.DataFrame) -> None:
-        wcg_train = train_df[train_df["WCG_Member"] == 1]
-        group_means = wcg_train.groupby("Group_ID")[TARGET_COLUMN].mean()
-        for gid, mean_surv in group_means.items():
-            if mean_surv == 1.0:
-                self.group_survival[gid] = 1.0
-            else:
-                self.group_survival[gid] = 0.0
+        # We need raw data for 'Ticket' and 'Last_Name' if they are missing
+        # But wait, 'Ticket' is dropped? Let's get raw data
+        from src.config import get_input_dir
+        input_dir = get_input_dir()
+        raw_train = pd.read_csv(input_dir / "train.csv")
+
+        df = train_df.copy()
+        df['Ticket'] = raw_train['Ticket']
+        df['Last_Name'] = df['Last_Name'] if 'Last_Name' in df else raw_train['Name'].str.split(",", n=1).str[0].str.strip()
+        df['Fare'] = df['Fare'] if 'Fare' in df else raw_train['Fare']
+
+        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['Fare'].astype(str)
+        df['Pass2_Group'] = df['Ticket'].astype(str)
+
+        self.pass1_groups = df.groupby('Pass1_Group')['Survived'].apply(list).to_dict()
+        self.pass2_groups = df.groupby('Pass2_Group')['Survived'].apply(list).to_dict()
 
     def transform(self, test_df: pd.DataFrame, baseline_probs: np.ndarray) -> np.ndarray:
         final_probs = baseline_probs.copy()
-        for idx in range(len(test_df)):
-            if test_df.iloc[idx]["WCG_Member"] == 1:
-                gid = test_df.iloc[idx]["Group_ID"]
-                if gid in self.group_survival:
-                    final_probs[idx] = self.group_survival[gid]
+
+        from src.config import get_input_dir
+        input_dir = get_input_dir()
+        raw_test = pd.read_csv(input_dir / "test.csv")
+
+        df = test_df.copy()
+        df['Ticket'] = raw_test['Ticket']
+        df['Last_Name'] = df['Last_Name'] if 'Last_Name' in df else raw_test['Name'].str.split(",", n=1).str[0].str.strip()
+        df['Fare'] = df['Fare'] if 'Fare' in df else raw_test['Fare']
+
+        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['Fare'].astype(str)
+        df['Pass2_Group'] = df['Ticket'].astype(str)
+
+        for idx in range(len(df)):
+            if df.iloc[idx]["WCG_Member"] == 1:
+                row = df.iloc[idx]
+                pass1_members = self.pass1_groups.get(row['Pass1_Group'], [])
+                if len(pass1_members) > 0:
+                    if max(pass1_members) == 1.0:
+                        final_probs[idx] = 1.0
+                        continue
+                    if min(pass1_members) == 0.0:
+                        final_probs[idx] = 0.0
+                        continue
+                pass2_members = self.pass2_groups.get(row['Pass2_Group'], [])
+                if len(pass2_members) > 0:
+                    if max(pass2_members) == 1.0:
+                        final_probs[idx] = 1.0
+                        continue
+                    if min(pass2_members) == 0.0:
+                        final_probs[idx] = 0.0
+                        continue
         return final_probs
 
 
