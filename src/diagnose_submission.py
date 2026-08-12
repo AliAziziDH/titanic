@@ -24,6 +24,11 @@ def _check_submission(test: pd.DataFrame) -> Dict[str, Any]:
     if not SUBMISSION_PATH.exists():
         return result
     submission = pd.read_csv(SUBMISSION_PATH)
+
+    if len(submission) != 418:
+        raise ValueError(f"CRITICAL ERROR: Refusing to diagnose submission. Submission has {len(submission)} rows. Must be exactly 418!")
+    if not (submission["PassengerId"].min() == 892 and submission["PassengerId"].max() == 1309):
+        raise ValueError(f"CRITICAL ERROR: PassengerId range is {submission['PassengerId'].min()}-{submission['PassengerId'].max()}. Must be exactly 892-1309!")
     result.update({
         "shape": list(submission.shape),
         "columns": list(submission.columns),
