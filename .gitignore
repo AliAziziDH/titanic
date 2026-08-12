@@ -1,14 +1,34 @@
-data/raw/
-data/processed/
+# Raw Data
+data/raw/*.csv
+data/raw/*.zip
+!data/raw/.gitkeep
+
+# Processed Data
+data/processed/*
+!data/processed/.gitkeep
+
+# Submissions
+submissions/*.csv
+!submissions/.gitkeep
+
+# Models
+models/*
+!models/.gitkeep
+*.pkl
+*.joblib
+
+# Experiments
+experiments/*
+!experiments/.gitkeep
+
+# Caches and Virtual Environments
 __pycache__/
 **/__pycache__/
 *.pyc
 *.pyo
-models/*.joblib
+.pytest_cache/
 .venv/
-reports/figures/
-experiments/*.npz
-submissions/*.csv
-!submissions/submission_catboost.csv
-!submissions/submission_stacking.csv
 catboost_info/
+
+# Reports
+reports/figures/
