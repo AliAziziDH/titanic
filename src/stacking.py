@@ -37,8 +37,8 @@ def _base_models() -> Dict[str, Any]:
             n_estimators=100, max_depth=10, random_state=RANDOM_STATE, n_jobs=-1
         ),
         "MLP": MLPClassifier(
-            hidden_layer_sizes=(64, 32), activation="relu", solver="adam",
-            alpha=0.001, batch_size=32, early_stopping=True,
+            hidden_layer_sizes=(128, 64, 32), activation="relu", solver="adam",
+            alpha=0.1, batch_size=32, early_stopping=True,
             validation_fraction=0.1, n_iter_no_change=10,
             random_state=RANDOM_STATE, max_iter=500,
         ),

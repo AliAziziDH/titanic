@@ -21,7 +21,6 @@ ESSENTIAL_COLUMNS = [
     "Age",
     "SibSp",
     "Parch",
-    "Fare",
     "Embarked",
 ]
 
@@ -86,15 +85,17 @@ def _create_ticket_features(df: pd.DataFrame, reference: pd.DataFrame | None = N
 def _create_fare_features(df: pd.DataFrame, reference: pd.DataFrame | None = None) -> pd.DataFrame:
     """Create per-person fare and quantile-based fare category."""
     ticket_freq = df["Ticket_Frequency"].replace(0, 1)
-    df["Price"] = df["Fare"] / ticket_freq
+    df["AdjFare"] = df["Fare"] / ticket_freq
     try:
-        reference_fare = (reference if reference is not None else df)["Fare"].dropna()
-        quantiles = reference_fare.quantile([0, 0.25, 0.5, 0.75, 1]).to_numpy()
+        if reference is not None and "AdjFare" not in reference.columns:
+            reference["AdjFare"] = reference["Fare"] / reference["Ticket"].map(reference["Ticket"].value_counts()).fillna(1).replace(0, 1)
+        reference_fare = (reference if reference is not None else df)["AdjFare"].dropna()
+        quantiles = reference_fare.quantile([0, 0.2, 0.4, 0.6, 0.8, 1]).to_numpy()
         edges = np.unique(quantiles)
-        labels = ["Low", "Medium", "High", "Very High"][: len(edges) - 1]
-        df["Fare_Bin"] = pd.cut(df["Fare"], bins=edges, labels=labels, include_lowest=True)
+        labels = ["Very Low", "Low", "Medium", "High", "Very High"][: len(edges) - 1]
+        df["AdjFare_Bin"] = pd.cut(df["AdjFare"], bins=edges, labels=labels, include_lowest=True)
     except ValueError:
-        df["Fare_Bin"] = pd.Series(pd.NA, index=df.index, dtype="string")
+        df["AdjFare_Bin"] = pd.Series(pd.NA, index=df.index, dtype="string")
     return df
 
 
@@ -141,7 +142,7 @@ def _create_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def engineer_features(df: pd.DataFrame, reference_df: pd.DataFrame | None = None) -> pd.DataFrame:
     """Return a new DataFrame with Titanic feature engineering applied."""
-    required = set(ESSENTIAL_COLUMNS + ["Name", "Ticket", "Cabin"])
+    required = set(ESSENTIAL_COLUMNS + ["Name", "Ticket", "Cabin", "Fare"])
     missing = required.difference(df.columns)
     if missing:
         raise ValueError(f"Missing required columns: {sorted(missing)}")
@@ -173,8 +174,8 @@ def engineer_features(df: pd.DataFrame, reference_df: pd.DataFrame | None = None
         "Ticket_Frequency",
         "Is_Group",
         "Ticket_Prefix",
-        "Price",
-        "Fare_Bin",
+        "AdjFare",
+        "AdjFare_Bin",
         "Sex_Pclass",
         "Title_Sex",
         "Is_Mother",

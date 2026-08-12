@@ -36,12 +36,12 @@ MODEL_DIR = Path(MODELS_DIR)
 CV_RESULTS_PATH = Path(EXPERIMENTS_DIR) / "cv_results.json"
 
 NUMERICAL_FEATURES = [
-    "Age", "Fare", "SibSp", "Parch", "Family_Size", "Ticket_Frequency", "Price", "WCG_Survival",
+    "Age", "SibSp", "Parch", "Family_Size", "Ticket_Frequency", "AdjFare", "WCG_Survival",
 ]
 CATEGORICAL_FEATURES = [
     "Sex", "Embarked", "Title_Num", "Title_Encoded", "Deck_Num", "Deck_Encoded",
     "Deck", "Deck_Group", "Family_Name", "Last_Name", "Family_Size_Category", "Ticket_Prefix",
-    "Fare_Bin", "Age_Band", "Sex_Pclass", "Title_Sex", "Group_ID",
+    "AdjFare_Bin", "Age_Band", "Sex_Pclass", "Title_Sex", "Group_ID",
 ]
 BINARY_FEATURES = ["Has_Cabin", "Is_Alone", "Is_Group", "Is_Mother", "WCG_Member"]
 
@@ -53,7 +53,7 @@ class WCGSurvivalEncoder(BaseEstimator, TransformerMixin):
         self.pass2_groups = {}
 
     def fit(self, X, y=None):
-        if y is None or 'Last_Name' not in X or 'Fare' not in X or 'Ticket' not in X:
+        if y is None or 'Last_Name' not in X or 'AdjFare' not in X or 'Ticket' not in X:
             return self
 
         df = X.copy()
@@ -61,7 +61,7 @@ class WCGSurvivalEncoder(BaseEstimator, TransformerMixin):
 
         # We store lists of (index, survival) for Pass 1 and Pass 2
 
-        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['Fare'].astype(str)
+        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['AdjFare'].astype(str)
         df['Pass2_Group'] = df['Ticket'].astype(str)
 
         self.pass1_groups = df.groupby('Pass1_Group').apply(
@@ -76,11 +76,11 @@ class WCGSurvivalEncoder(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         df = X.copy()
-        if 'Last_Name' not in df or 'Fare' not in df or 'Ticket' not in df:
+        if 'Last_Name' not in df or 'AdjFare' not in df or 'Ticket' not in df:
             df['WCG_Survival'] = self.default_rate
             return df
 
-        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['Fare'].astype(str)
+        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['AdjFare'].astype(str)
         df['Pass2_Group'] = df['Ticket'].astype(str)
 
         def calculate_survival(row):

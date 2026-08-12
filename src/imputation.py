@@ -23,7 +23,7 @@ AGE_FEATURES = [
     "Sex",
     "SibSp",
     "Parch",
-    "Price",
+    "AdjFare",
     "Is_Mother",
     "Is_Alone",
     "Ticket_Frequency",
@@ -147,28 +147,26 @@ def impute_embarked(
 
 
 def impute_fare(test_df: pd.DataFrame, train_df: pd.DataFrame) -> pd.DataFrame:
-    """Impute test Fare using train-only Pclass and Embarked medians."""
+    """Impute test AdjFare using train-only Pclass and Embarked medians."""
     test_clean = test_df.copy()
-    global_median = train_df["Fare"].median()
-    for index in test_clean.index[test_clean["Fare"].isna()]:
+    global_median = train_df["AdjFare"].median()
+    for index in test_clean.index[test_clean["AdjFare"].isna()]:
         row = test_clean.loc[index]
         candidates = train_df[
             train_df["Pclass"].eq(row["Pclass"])
             & train_df["Embarked"].eq(row["Embarked"])
-        ]["Fare"].dropna()
+        ]["AdjFare"].dropna()
         if candidates.empty:
-            candidates = train_df[train_df["Pclass"].eq(row["Pclass"])]["Fare"].dropna()
-        test_clean.loc[index, "Fare"] = candidates.median() if not candidates.empty else global_median
-    if "Ticket_Frequency" in test_clean:
-        test_clean["Price"] = test_clean["Fare"] / test_clean["Ticket_Frequency"].replace(0, 1)
-    if "Fare_Bin" in test_clean:
-        quantiles = train_df["Fare"].dropna().quantile([0, 0.25, 0.5, 0.75, 1]).to_numpy()
+            candidates = train_df[train_df["Pclass"].eq(row["Pclass"])]["AdjFare"].dropna()
+        test_clean.loc[index, "AdjFare"] = candidates.median() if not candidates.empty else global_median
+
+    if "AdjFare_Bin" in test_clean:
+        quantiles = train_df["AdjFare"].dropna().quantile([0, 0.2, 0.4, 0.6, 0.8, 1]).to_numpy()
         edges = np.unique(quantiles)
-        labels = ["Low", "Medium", "High", "Very High"][: len(edges) - 1]
-        test_clean["Fare_Bin"] = pd.cut(
-            test_clean["Fare"], bins=edges, labels=labels, include_lowest=True
+        labels = ["Very Low", "Low", "Medium", "High", "Very High"][: len(edges) - 1]
+        test_clean["AdjFare_Bin"] = pd.cut(
+            test_clean["AdjFare"], bins=edges, labels=labels, include_lowest=True
         )
-    LOGGER.info("Fare missing values filled in test: %d", int(test_df["Fare"].isna().sum()))
     return test_clean
 
 
@@ -183,8 +181,8 @@ def impute_missing_values(
         LOGGER.info(
             "%s missing after imputation: train=%d, test=%d",
             column,
-            int(train_clean[column].isna().sum()),
-            int(test_clean[column].isna().sum()),
+            int(train_clean[column].isna().sum() if column in train_clean else 0),
+            int(test_clean[column].isna().sum() if column in test_clean else 0),
         )
     return train_clean, test_clean
 
