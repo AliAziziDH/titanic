@@ -46,17 +46,24 @@ class WCGPostProcessor:
 
     def fit(self, train_df: pd.DataFrame) -> None:
         # We need raw data for 'Ticket' and 'Last_Name' if they are missing
-        # But wait, 'Ticket' is dropped? Let's get raw data
+        # But 'Ticket' is not dropped in engineering unless specifically configured. Wait, 'Ticket' IS dropped from model features.
         from src.config import get_input_dir
         input_dir = get_input_dir()
         raw_train = pd.read_csv(input_dir / "train.csv")
 
         df = train_df.copy()
-        df['Ticket'] = raw_train['Ticket']
-        df['Last_Name'] = df['Last_Name'] if 'Last_Name' in df else raw_train['Name'].str.split(",", n=1).str[0].str.strip()
-        df['Fare'] = df['Fare'] if 'Fare' in df else raw_train['Fare']
+        if 'Ticket' not in df:
+            df['Ticket'] = raw_train['Ticket']
+        if 'Last_Name' not in df:
+            df['Last_Name'] = raw_train['Name'].str.split(",", n=1).str[0].str.strip()
 
-        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['Fare'].astype(str)
+        # AdjFare is already in train_df because it's engineered.
+        # But just in case, we compute it if missing.
+        if 'AdjFare' not in df:
+             ticket_counts = df['Ticket'].value_counts(dropna=False)
+             df['AdjFare'] = raw_train['Fare'] / df['Ticket'].map(ticket_counts).fillna(1).replace(0, 1)
+
+        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['AdjFare'].astype(str)
         df['Pass2_Group'] = df['Ticket'].astype(str)
 
         self.pass1_groups = df.groupby('Pass1_Group')['Survived'].apply(list).to_dict()
@@ -69,12 +76,21 @@ class WCGPostProcessor:
         input_dir = get_input_dir()
         raw_test = pd.read_csv(input_dir / "test.csv")
 
-        df = test_df.copy()
-        df['Ticket'] = raw_test['Ticket']
-        df['Last_Name'] = df['Last_Name'] if 'Last_Name' in df else raw_test['Name'].str.split(",", n=1).str[0].str.strip()
-        df['Fare'] = df['Fare'] if 'Fare' in df else raw_test['Fare']
+        # We need raw_train for exact ticket counts to compute AdjFare perfectly if missing.
+        raw_train = pd.read_csv(input_dir / "train.csv")
+        combined = pd.concat([raw_train, raw_test], ignore_index=True)
 
-        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['Fare'].astype(str)
+        df = test_df.copy()
+        if 'Ticket' not in df:
+            df['Ticket'] = raw_test['Ticket']
+        if 'Last_Name' not in df:
+            df['Last_Name'] = raw_test['Name'].str.split(",", n=1).str[0].str.strip()
+
+        if 'AdjFare' not in df:
+             ticket_counts = combined['Ticket'].value_counts(dropna=False)
+             df['AdjFare'] = raw_test['Fare'] / df['Ticket'].map(ticket_counts).fillna(1).replace(0, 1)
+
+        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['AdjFare'].astype(str)
         df['Pass2_Group'] = df['Ticket'].astype(str)
 
         for idx in range(len(df)):
@@ -97,7 +113,6 @@ class WCGPostProcessor:
                         final_probs[idx] = 0.0
                         continue
         return final_probs
-
 
 def _load_scores() -> Dict[str, Dict[str, float]]:
     """Load ROC-AUC and accuracy scores for weighting and reporting."""

@@ -8,6 +8,10 @@ from typing import Any, Dict, Tuple
 import joblib
 import numpy as np
 import pandas as pd
+
+from imblearn.pipeline import Pipeline as ImbPipeline
+from imblearn.combine import SMOTEENN
+
 from sklearn.base import clone
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier
 from sklearn.linear_model import LogisticRegression
@@ -80,10 +84,11 @@ def _base_models() -> Dict[str, Any]:
 
 
 def _pipeline(model: Any, frame: pd.DataFrame) -> Pipeline:
-    return Pipeline([
+    return ImbPipeline([
         ("wcg_encoder", WCGSurvivalEncoder()),
         ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
         ("preprocessor", build_preprocessor(frame)),
+        ("smoteenn", SMOTEENN(random_state=RANDOM_STATE)),
         ("model", model)
     ])
 

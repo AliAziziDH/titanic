@@ -84,6 +84,34 @@ def _create_ticket_features(df: pd.DataFrame, reference: pd.DataFrame | None = N
 
 def _create_fare_features(df: pd.DataFrame, reference: pd.DataFrame | None = None) -> pd.DataFrame:
     """Create per-person fare and quantile-based fare category."""
+    # Compute Ticket_Count strictly based on exact Ticket string matches
+    if reference is not None:
+        ticket_counts = reference["Ticket"].value_counts(dropna=False)
+    else:
+        ticket_counts = df["Ticket"].value_counts(dropna=False)
+
+    ticket_freq = df["Ticket"].map(ticket_counts).fillna(1).replace(0, 1)
+    df["AdjFare"] = df["Fare"] / ticket_freq
+
+    try:
+        if reference is not None and "AdjFare" not in reference.columns:
+            ref_ticket_freq = reference["Ticket"].map(ticket_counts).fillna(1).replace(0, 1)
+            reference["AdjFare"] = reference["Fare"] / ref_ticket_freq
+
+        reference_fare = (reference if reference is not None else df)["AdjFare"].dropna()
+        # 5 quantile bins (quintiles)
+        quantiles = reference_fare.quantile([0, 0.2, 0.4, 0.6, 0.8, 1]).to_numpy()
+        edges = np.unique(quantiles)
+        labels = ["Very Low", "Low", "Medium", "High", "Very High"][: len(edges) - 1]
+
+        df["AdjFare_Bin"] = pd.cut(df["AdjFare"], bins=edges, labels=labels, include_lowest=True)
+    except ValueError:
+        df["AdjFare_Bin"] = pd.Series(pd.NA, index=df.index, dtype="string")
+
+
+
+    return df
+    """Create per-person fare and quantile-based fare category."""
     ticket_freq = df["Ticket_Frequency"].replace(0, 1)
     df["AdjFare"] = df["Fare"] / ticket_freq
     try:

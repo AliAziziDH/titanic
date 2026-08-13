@@ -8,6 +8,10 @@ from typing import Any, Dict, Tuple
 import joblib
 import numpy as np
 import pandas as pd
+
+from imblearn.pipeline import Pipeline as ImbPipeline
+from imblearn.combine import SMOTEENN
+
 from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
@@ -120,15 +124,6 @@ class WCGSurvivalEncoder(BaseEstimator, TransformerMixin):
         return df
 
 
-        def map_rate(row):
-            if row['WCG_Member'] == 1 and row['Group_ID'] in self.group_survival:
-                return self.group_survival[row['Group_ID']]
-            return self.default_rate
-
-        df['WCG_Survival'] = df.apply(map_rate, axis=1)
-        return df
-
-
 class AgeImputer(BaseEstimator, TransformerMixin):
     def __init__(self, random_state=42):
         self.random_state = random_state
@@ -199,11 +194,11 @@ def _available_columns(frame: pd.DataFrame) -> Tuple[list[str], list[str], list[
 def build_preprocessor(frame: pd.DataFrame) -> ColumnTransformer:
     """Build preprocessing that is fitted independently within each CV fold."""
     numeric, categorical, binary = _available_columns(frame)
-    numeric_pipeline = Pipeline([
+    numeric_pipeline = ImbPipeline([
         ("imputer", SimpleImputer(strategy="median")),
         ("scaler", StandardScaler()),
     ])
-    categorical_pipeline = Pipeline([
+    categorical_pipeline = ImbPipeline([
         ("imputer", SimpleImputer(strategy="constant", fill_value="Unknown")),
         ("encoder", OneHotEncoder(handle_unknown="ignore")),
     ])
@@ -273,10 +268,11 @@ def evaluate_model(
     """Evaluate a model with preprocessing fitted separately on each fold."""
     scores = {"accuracy": [], "roc_auc": [], "f1_macro": []}
     for fold, (fit_idx, validation_idx) in enumerate(cv_strategy.split(X_train, y_train), start=1):
-        pipeline = Pipeline([
+        pipeline = ImbPipeline([
             ("wcg_encoder", WCGSurvivalEncoder()),
             ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
             ("preprocessor", build_preprocessor(X_train)),
+            ("smoteenn", SMOTEENN(random_state=RANDOM_STATE)),
             ("model", clone(model)),
         ])
         pipeline.fit(X_train.iloc[fit_idx], y_train.iloc[fit_idx])
@@ -334,7 +330,7 @@ def run_modeling_pipeline() -> pd.DataFrame:
     CV_RESULTS_PATH.write_text(json.dumps(results, indent=2), encoding="utf-8")
     best = _select_best(results)
     best_model = default_models()[best["model"]]
-    final_pipeline = Pipeline([
+    final_pipeline = ImbPipeline([
         ("wcg_encoder", WCGSurvivalEncoder()),
         ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
         ("preprocessor", build_preprocessor(X_train)),
