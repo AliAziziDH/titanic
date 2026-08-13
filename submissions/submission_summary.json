@@ -1,29 +1,29 @@
 {
-  "generated_at": "2026-08-13T06:02:21.426004+00:00",
+  "generated_at": "2026-08-13T08:27:56.767398+00:00",
   "scores": {
     "CatBoost": {
-      "accuracy": 0.49908982486975084,
-      "roc_auc": 0.4989078992168881
+      "accuracy": 0.8241520724792333,
+      "roc_auc": 0.8815633688536034
     },
     "XGBoost": {
-      "accuracy": 0.5080555729918607,
-      "roc_auc": 0.5095712745431847
+      "accuracy": 0.8275270437093297,
+      "roc_auc": 0.8840167412409841
     },
     "LightGBM": {
-      "accuracy": 0.5046889711882494,
-      "roc_auc": 0.5122613778231756
+      "accuracy": 0.8316385244701106,
+      "roc_auc": 0.8812754655354788
     },
     "RandomForest": {
-      "accuracy": 0.5001841273826712,
-      "roc_auc": 0.5056243143040897
+      "accuracy": 0.8323708492875526,
+      "roc_auc": 0.8764718745919032
     },
     "Stacking": {
-      "accuracy": 0.5173961840628507,
-      "roc_auc": 0.5079113126732174
+      "accuracy": 0.8316498316498316,
+      "roc_auc": 0.8870008202047317
     }
   },
   "submissions": {
-    "LightGBM": "/app/submissions/submission_lightgbm.csv",
+    "XGBoost": "/app/submissions/submission_xgboost.csv",
     "Stacking": "/app/submissions/submission_stacking.csv",
     "WeightedEnsemble": "/app/submissions/submission_weighted_ensemble.csv",
     "MajorityVote": "/app/submissions/submission_majority_vote.csv"

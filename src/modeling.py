@@ -272,7 +272,6 @@ def evaluate_model(
             ("wcg_encoder", WCGSurvivalEncoder()),
             ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
             ("preprocessor", build_preprocessor(X_train)),
-            ("smoteenn", SMOTEENN(random_state=RANDOM_STATE)),
             ("model", clone(model)),
         ])
         pipeline.fit(X_train.iloc[fit_idx], y_train.iloc[fit_idx])
