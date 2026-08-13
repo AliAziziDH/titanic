@@ -237,6 +237,7 @@ updated.
 
 ## Lessons Learned
 
+- **Inference Alignment:** To prevent catastrophic feature shifts and double-imputation errors during predict-time, `final_submission.py` must strictly load raw, unimputed test data with its NaNs intact using `load_modeling_data()`. This ensures that the dynamic, fold-local preprocessing pipelines (such as `AgeImputer`) can run correctly in their trained sequence, preserving exact feature distributions.
 - Feature engineering based on passenger context was more valuable than blindly
   increasing model complexity.
 - OOF predictions are essential for a trustworthy stacking ensemble.

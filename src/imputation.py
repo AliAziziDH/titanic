@@ -135,8 +135,8 @@ def impute_embarked(
             candidates = train_clean[
                 train_clean["Embarked"].notna() & train_clean["Pclass"].eq(row["Pclass"])
             ]
-            if not candidates.empty and pd.notna(row["Fare"]):
-                nearest = (candidates["Fare"] - row["Fare"]).abs().idxmin()
+            if not candidates.empty and pd.notna(row["AdjFare"]):
+                nearest = (candidates["AdjFare"] - row["AdjFare"]).abs().idxmin()
                 frame.loc[index, "Embarked"] = train_clean.loc[nearest, "Embarked"]
             elif not candidates.empty:
                 frame.loc[index, "Embarked"] = candidates["Embarked"].mode().iloc[0]
@@ -177,7 +177,7 @@ def impute_missing_values(
     train_clean, test_clean = impute_age_with_cv(train_df, test_df)
     train_clean, test_clean = impute_embarked(train_clean, test_clean)
     test_clean = impute_fare(test_clean, train_clean)
-    for column in ["Age", "Embarked", "Fare"]:
+    for column in ["Age", "Embarked", "AdjFare"]:
         LOGGER.info(
             "%s missing after imputation: train=%d, test=%d",
             column,
