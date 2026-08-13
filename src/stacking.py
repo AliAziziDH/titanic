@@ -88,7 +88,6 @@ def _pipeline(model: Any, frame: pd.DataFrame) -> Pipeline:
         ("wcg_encoder", WCGSurvivalEncoder()),
         ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
         ("preprocessor", build_preprocessor(frame)),
-        ("smoteenn", SMOTEENN(random_state=RANDOM_STATE)),
         ("model", model)
     ])
 
