@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-08-13T06:02:21.426004+00:00",
+  "scores": {
+    "CatBoost": {
+      "accuracy": 0.49908982486975084,
+      "roc_auc": 0.4989078992168881
+    },
+    "XGBoost": {
+      "accuracy": 0.5080555729918607,
+      "roc_auc": 0.5095712745431847
+    },
+    "LightGBM": {
+      "accuracy": 0.5046889711882494,
+      "roc_auc": 0.5122613778231756
+    },
+    "RandomForest": {
+      "accuracy": 0.5001841273826712,
+      "roc_auc": 0.5056243143040897
+    },
+    "Stacking": {
+      "accuracy": 0.5173961840628507,
+      "roc_auc": 0.5079113126732174
+    }
+  },
+  "submissions": {
+    "LightGBM": "/app/submissions/submission_lightgbm.csv",
+    "Stacking": "/app/submissions/submission_stacking.csv",
+    "WeightedEnsemble": "/app/submissions/submission_weighted_ensemble.csv",
+    "MajorityVote": "/app/submissions/submission_majority_vote.csv"
+  },
+  "rows": 418
+}

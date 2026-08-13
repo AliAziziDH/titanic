@@ -137,9 +137,31 @@ def _validation_predictions(
     meta_path = Path(MODELS_DIR) / "stacking_meta_model.joblib"
     if oof_path.exists() and meta_path.exists():
         import joblib
-
         oof = np.load(oof_path)
-        probabilities = joblib.load(meta_path).predict_proba(oof["predictions"])[:, 1]
+        meta_model = joblib.load(meta_path)
+
+        # We know OOF prediction array is from columns: ["RandomForest", "MLP", "CatBoost", "LightGBM", "XGBoost"] in stacking.py
+        # Actually it's models.keys() which was generated in stacking.py
+        # If meta_model is weights of length 3, we used XGBoost, LightGBM, CatBoost.
+        # But we can just use the fact that it's weights.
+        # Wait, if we can't align it perfectly here without knowing the columns, let's just use
+        # the saved blending models indices.
+        # The blending models were ["XGBoost", "LightGBM", "CatBoost"].
+        # And the order in stacking was:
+        # ["RandomForest", "MLP", "CatBoost", "LightGBM", "XGBoost"]
+        # So CatBoost is index 2, LightGBM is 3, XGBoost is 4.
+        # Wait, blend_oof = oof[["XGBoost", "LightGBM", "CatBoost"]]
+
+        if isinstance(meta_model, np.ndarray) and len(meta_model) == 3:
+            # We know the indices of XGBoost, LightGBM, CatBoost
+            oof_cols = ["RandomForest", "MLP", "CatBoost", "LightGBM", "XGBoost"]
+            blend_models = ["XGBoost", "LightGBM", "CatBoost"]
+            blend_idx = [oof_cols.index(m) for m in blend_models]
+            predictions_array = oof["predictions"][:, blend_idx]
+            probabilities = np.dot(predictions_array, meta_model)
+        else:
+            probabilities = np.dot(oof["predictions"], meta_model)
+
         targets = oof["target"].astype(int)
     else:
         probabilities = model.predict_proba(X)[:, 1]
