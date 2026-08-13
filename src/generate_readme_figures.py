@@ -14,6 +14,7 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 
 from src.config import DATA_PROCESSED_DIR, MODELS_DIR, get_input_dir
+from src.modeling import WCGSurvivalEncoder, AgeImputer
 
 LOGGER = logging.getLogger("titanic.readme_figures")
 PROJECT_DIR = Path(__file__).resolve().parent.parent

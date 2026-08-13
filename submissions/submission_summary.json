@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-13T08:27:56.767398+00:00",
+  "generated_at": "2026-08-13T11:29:14.938957+00:00",
   "scores": {
     "CatBoost": {
       "accuracy": 0.8241520724792333,
@@ -23,7 +23,10 @@
     }
   },
   "submissions": {
+    "CatBoost": "/app/submissions/submission_catboost.csv",
     "XGBoost": "/app/submissions/submission_xgboost.csv",
+    "LightGBM": "/app/submissions/submission_lightgbm.csv",
+    "RandomForest": "/app/submissions/submission_randomforest.csv",
     "Stacking": "/app/submissions/submission_stacking.csv",
     "WeightedEnsemble": "/app/submissions/submission_weighted_ensemble.csv",
     "MajorityVote": "/app/submissions/submission_majority_vote.csv"

@@ -328,7 +328,21 @@ def run_modeling_pipeline() -> pd.DataFrame:
     ]
     CV_RESULTS_PATH.write_text(json.dumps(results, indent=2), encoding="utf-8")
     best = _select_best(results)
-    best_model = default_models()[best["model"]]
+
+    # Train and save ALL individual models so final_submission.py can load them
+    models_dict = default_models()
+    for name, model in models_dict.items():
+        pipeline = ImbPipeline([
+            ("wcg_encoder", WCGSurvivalEncoder()),
+            ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
+            ("preprocessor", build_preprocessor(X_train)),
+            ("model", model),
+        ])
+        pipeline.fit(X_train, y_train)
+        joblib.dump(pipeline, MODEL_DIR / f"{name.lower()}_final.joblib")
+
+    # The rest proceeds as before for the "best" model logic
+    best_model = models_dict[best["model"]]
     final_pipeline = ImbPipeline([
         ("wcg_encoder", WCGSurvivalEncoder()),
         ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
@@ -340,7 +354,6 @@ def run_modeling_pipeline() -> pd.DataFrame:
     submission = pd.DataFrame({"PassengerId": test["PassengerId"], TARGET_COLUMN: test_predictions})
     submission_path = Path(SUBMISSIONS_DIR) / "submission_modeling.csv"
     submission.to_csv(submission_path, index=False)
-    joblib.dump(final_pipeline, MODEL_DIR / f"{best['model'].lower()}_final.joblib")
     (MODEL_DIR / "best_model.json").write_text(
         json.dumps({"model": best["model"], "metrics": best["metrics"]}, indent=2),
         encoding="utf-8",
