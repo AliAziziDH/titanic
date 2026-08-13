@@ -19,9 +19,13 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.model_selection import RepeatedStratifiedKFold
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.pipeline import Pipeline, FeatureUnion, make_pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.model_selection import cross_val_predict
+
+from gplearn.genetic import SymbolicTransformer
+from tabpfn import TabPFNClassifier
 
 from src.config import (
     DATA_PROCESSED_DIR,
@@ -168,6 +172,114 @@ class AgeImputer(BaseEstimator, TransformerMixin):
         return df
 
 
+class TabPFNFeatureExtractor(BaseEstimator, TransformerMixin):
+    def __init__(self, random_state=42):
+        self.random_state = random_state
+        self.tabpfn = TabPFNClassifier(
+            model_path="models/tabpfn/tabpfn-v3-classifier-v3_default.ckpt",
+            device='cpu'
+        )
+        self.fitted_ = False
+        self.train_probs_ = None
+
+    def fit(self, X, y=None):
+        if y is None:
+            return self
+
+        from sklearn.model_selection import StratifiedKFold
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.random_state)
+
+        X_imputed = np.nan_to_num(X, nan=-999.0)
+
+        self.train_probs_ = cross_val_predict(
+            self.tabpfn, X_imputed, y, cv=cv, method='predict_proba', n_jobs=-1
+        )[:, 1].reshape(-1, 1)
+
+        self.tabpfn.fit(X_imputed, y)
+        self.fitted_ = True
+        return self
+
+    def fit_transform(self, X, y=None):
+        self.fit(X, y)
+        return self.train_probs_
+
+    def transform(self, X):
+        if not self.fitted_:
+            return np.zeros((X.shape[0], 1))
+
+        X_imputed = np.nan_to_num(X, nan=-999.0)
+        probs = self.tabpfn.predict_proba(X_imputed)[:, 1].reshape(-1, 1)
+        return probs
+
+
+class ToDenseTransformer(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+    def transform(self, X):
+        from scipy import sparse
+        if sparse.issparse(X):
+            return X.toarray()
+        return np.array(X)
+
+
+class PipelineWrapper(BaseEstimator, TransformerMixin):
+    def __init__(self, preprocessor, union):
+        self.preprocessor = preprocessor
+        self.union = union
+        from sklearn.pipeline import Pipeline
+        self.pipe = Pipeline([
+            ("preprocessor", preprocessor),
+            ("meta_union", union)
+        ])
+
+    def fit(self, X, y=None):
+        self.pipe.fit(X, y)
+        return self
+
+    def transform(self, X):
+        return self.pipe.transform(X)
+
+    def fit_transform(self, X, y=None):
+        return self.pipe.fit_transform(X, y)
+
+
+def build_meta_features(preprocessor):
+    symbolic = SymbolicTransformer(
+        population_size=500,
+        hall_of_fame=50,
+        n_components=10,
+        generations=10,
+        tournament_size=20,
+        stopping_criteria=1.0,
+        const_range=(-1.0, 1.0),
+        init_depth=(2, 4),
+        init_method='half and half',
+        function_set=['add', 'sub', 'mul', 'div', 'sqrt'],
+        metric='pearson',
+        parsimony_coefficient=0.01,
+        p_crossover=0.7,
+        p_subtree_mutation=0.1,
+        p_hoist_mutation=0.05,
+        p_point_mutation=0.1,
+        max_samples=1.0,
+        feature_names=None,
+        warm_start=False,
+        low_memory=False,
+        n_jobs=-1,
+        verbose=0,
+        random_state=RANDOM_STATE
+    )
+
+    union = FeatureUnion([
+        ("original", FunctionTransformer()),
+        ("symbolic", symbolic),
+        ("tabpfn", TabPFNFeatureExtractor(random_state=RANDOM_STATE))
+    ])
+
+    union = make_pipeline(ToDenseTransformer(), union)
+    return PipelineWrapper(preprocessor, union)
+
+
 def load_modeling_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Load engineered data so every fold imputes from its own training rows."""
     train_path = Path(DATA_PROCESSED_DIR) / "train_engineered.csv"
@@ -271,7 +383,7 @@ def evaluate_model(
         pipeline = ImbPipeline([
             ("wcg_encoder", WCGSurvivalEncoder()),
             ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
-            ("preprocessor", build_preprocessor(X_train)),
+            ("meta_features", build_meta_features(build_preprocessor(X_train))),
             ("model", clone(model)),
         ])
         pipeline.fit(X_train.iloc[fit_idx], y_train.iloc[fit_idx])
@@ -335,7 +447,7 @@ def run_modeling_pipeline() -> pd.DataFrame:
         pipeline = ImbPipeline([
             ("wcg_encoder", WCGSurvivalEncoder()),
             ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
-            ("preprocessor", build_preprocessor(X_train)),
+            ("meta_features", build_meta_features(build_preprocessor(X_train))),
             ("model", model),
         ])
         pipeline.fit(X_train, y_train)
@@ -346,7 +458,7 @@ def run_modeling_pipeline() -> pd.DataFrame:
     final_pipeline = ImbPipeline([
         ("wcg_encoder", WCGSurvivalEncoder()),
         ("age_imputer", AgeImputer(random_state=RANDOM_STATE)),
-        ("preprocessor", build_preprocessor(X_train)),
+        ("meta_features", build_meta_features(build_preprocessor(X_train))),
         ("model", best_model),
     ])
     final_pipeline.fit(X_train, y_train)
