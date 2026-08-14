@@ -41,33 +41,48 @@ class WCGPostProcessor:
     """Deterministic post-processor based on Woman-Child-Group survival."""
 
     def __init__(self) -> None:
-        self.pass1_groups = {}
-        self.pass2_groups = {}
+        self.group_survival_rates = {}
 
     def fit(self, train_df: pd.DataFrame) -> None:
-        # We need raw data for 'Ticket' and 'Last_Name' if they are missing
-        # But 'Ticket' is not dropped in engineering unless specifically configured. Wait, 'Ticket' IS dropped from model features.
         from src.config import get_input_dir
         input_dir = get_input_dir()
         raw_train = pd.read_csv(input_dir / "train.csv")
 
         df = train_df.copy()
-        if 'Ticket' not in df:
-            df['Ticket'] = raw_train['Ticket']
-        if 'Last_Name' not in df:
-            df['Last_Name'] = raw_train['Name'].str.split(",", n=1).str[0].str.strip()
 
-        # AdjFare is already in train_df because it's engineered.
-        # But just in case, we compute it if missing.
-        if 'AdjFare' not in df:
-             ticket_counts = df['Ticket'].value_counts(dropna=False)
-             df['AdjFare'] = raw_train['Fare'] / df['Ticket'].map(ticket_counts).fillna(1).replace(0, 1)
+        # Bring in raw columns
+        df['Ticket'] = raw_train['Ticket'].astype(str)
+        df['Last_Name'] = raw_train['Name'].str.split(",", n=1).str[0].str.strip()
+        df['Fare'] = raw_train['Fare']
+        df['Embarked'] = raw_train['Embarked']
+        df['Pclass'] = raw_train['Pclass']
 
-        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['AdjFare'].astype(str)
-        df['Pass2_Group'] = df['Ticket'].astype(str)
+        df['Pass1_Group'] = df['Ticket']
+        df['Pass2_Group'] = df['Last_Name'] + "_" + df['Pclass'].astype(str) + "_" + df['Embarked'].astype(str) + "_" + df['Fare'].astype(str)
 
-        self.pass1_groups = df.groupby('Pass1_Group')['Survived'].apply(list).to_dict()
-        self.pass2_groups = df.groupby('Pass2_Group')['Survived'].apply(list).to_dict()
+        # WCG identification using Imputed Age from train_df and raw Title/Sex
+        df['Is_WCG'] = (df['Sex'] == 'female') | (df['Title'] == 'Master') | (df['Age'] < 18)
+
+        # Calculate survival rates of WCG members for each group
+        # Pass 1
+        pass1_counts = df['Pass1_Group'].value_counts()
+        for group, size in pass1_counts.items():
+            if size > 1:
+                group_data = df[df['Pass1_Group'] == group]
+                wcg_data = group_data[group_data['Is_WCG']]
+                if len(wcg_data) > 0:
+                    survived_rate = wcg_data['Survived'].mean()
+                    self.group_survival_rates[f"P1_{group}"] = survived_rate
+
+        # Pass 2
+        pass2_counts = df['Pass2_Group'].value_counts()
+        for group, size in pass2_counts.items():
+            if size > 1:
+                group_data = df[df['Pass2_Group'] == group]
+                wcg_data = group_data[group_data['Is_WCG']]
+                if len(wcg_data) > 0:
+                    survived_rate = wcg_data['Survived'].mean()
+                    self.group_survival_rates[f"P2_{group}"] = survived_rate
 
     def transform(self, test_df: pd.DataFrame, baseline_probs: np.ndarray) -> np.ndarray:
         final_probs = baseline_probs.copy()
@@ -76,42 +91,47 @@ class WCGPostProcessor:
         input_dir = get_input_dir()
         raw_test = pd.read_csv(input_dir / "test.csv")
 
-        # We need raw_train for exact ticket counts to compute AdjFare perfectly if missing.
-        raw_train = pd.read_csv(input_dir / "train.csv")
-        combined = pd.concat([raw_train, raw_test], ignore_index=True)
-
         df = test_df.copy()
-        if 'Ticket' not in df:
-            df['Ticket'] = raw_test['Ticket']
-        if 'Last_Name' not in df:
-            df['Last_Name'] = raw_test['Name'].str.split(",", n=1).str[0].str.strip()
 
-        if 'AdjFare' not in df:
-             ticket_counts = combined['Ticket'].value_counts(dropna=False)
-             df['AdjFare'] = raw_test['Fare'] / df['Ticket'].map(ticket_counts).fillna(1).replace(0, 1)
+        df['Ticket'] = raw_test['Ticket'].astype(str)
+        df['Last_Name'] = raw_test['Name'].str.split(",", n=1).str[0].str.strip()
+        df['Fare'] = raw_test['Fare']
+        df['Embarked'] = raw_test['Embarked']
+        df['Pclass'] = raw_test['Pclass']
 
-        df['Pass1_Group'] = df['Last_Name'].astype(str) + "_" + df['AdjFare'].astype(str)
-        df['Pass2_Group'] = df['Ticket'].astype(str)
+        df['Pass1_Group'] = df['Ticket']
+        df['Pass2_Group'] = df['Last_Name'] + "_" + df['Pclass'].astype(str) + "_" + df['Embarked'].astype(str) + "_" + df['Fare'].astype(str)
+
+        df['Is_WCG'] = (df['Sex'] == 'female') | (df['Title'] == 'Master') | (df['Age'] < 18)
 
         for idx in range(len(df)):
-            if df.iloc[idx]["WCG_Member"] == 1:
-                row = df.iloc[idx]
-                pass1_members = self.pass1_groups.get(row['Pass1_Group'], [])
-                if len(pass1_members) > 0:
-                    if max(pass1_members) == 1.0:
-                        final_probs[idx] = 1.0
-                        continue
-                    if min(pass1_members) == 0.0:
-                        final_probs[idx] = 0.0
-                        continue
-                pass2_members = self.pass2_groups.get(row['Pass2_Group'], [])
-                if len(pass2_members) > 0:
-                    if max(pass2_members) == 1.0:
-                        final_probs[idx] = 1.0
-                        continue
-                    if min(pass2_members) == 0.0:
-                        final_probs[idx] = 0.0
-                        continue
+            if not df.iloc[idx]['Is_WCG']:
+                continue
+
+            row = df.iloc[idx]
+
+            # Check Pass 1 first
+            p1_key = f"P1_{row['Pass1_Group']}"
+            if p1_key in self.group_survival_rates:
+                rate = self.group_survival_rates[p1_key]
+                if rate == 1.0:
+                    final_probs[idx] = 1.0
+                    continue
+                elif rate == 0.0:
+                    final_probs[idx] = 0.0
+                    continue
+
+            # Check Pass 2 if Pass 1 didn't override
+            p2_key = f"P2_{row['Pass2_Group']}"
+            if p2_key in self.group_survival_rates:
+                rate = self.group_survival_rates[p2_key]
+                if rate == 1.0:
+                    final_probs[idx] = 1.0
+                    continue
+                elif rate == 0.0:
+                    final_probs[idx] = 0.0
+                    continue
+
         return final_probs
 
 def _load_scores() -> Dict[str, Dict[str, float]]:
@@ -199,8 +219,14 @@ def run_final_submission() -> Dict[str, Any]:
     probabilities: Dict[str, np.ndarray] = {}
     paths: Dict[str, str] = {}
 
+    wcg_processor = WCGPostProcessor()
+    wcg_processor.fit(train)
+
     for name, model in _load_individual_models().items():
-        probabilities[name] = model.predict_proba(X_test)[:, 1]
+        base_prob = model.predict_proba(X_test)[:, 1]
+        if name in ["CatBoost", "Stacking"]: # Although Stacking is below, CatBoost is here
+            base_prob = wcg_processor.transform(test, base_prob)
+        probabilities[name] = base_prob
         paths[name] = str(_write_submission(name, passenger_ids, probabilities[name]))
 
     try:
@@ -227,8 +253,6 @@ def run_final_submission() -> Dict[str, Any]:
             })
             stack_probability = meta_model.predict_proba(base_predictions)[:, 1]
 
-        wcg_processor = WCGPostProcessor()
-        wcg_processor.fit(train)
         stack_probability = wcg_processor.transform(test, stack_probability)
 
         probabilities["Stacking"] = stack_probability
