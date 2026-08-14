@@ -175,7 +175,7 @@ class AgeImputer(BaseEstimator, TransformerMixin):
 class TabPFNFeatureExtractor(BaseEstimator, TransformerMixin):
     def __init__(self, random_state=42):
         self.random_state = random_state
-        self.tabpfn = TabPFNClassifier(
+        self.tabpfn = TabPFNClassifier(n_estimators=1, ignore_pretraining_limits=True,
             model_path="models/tabpfn/tabpfn-v3-classifier-v3_default.ckpt",
             device='cpu'
         )
@@ -245,11 +245,11 @@ class PipelineWrapper(BaseEstimator, TransformerMixin):
 
 def build_meta_features(preprocessor):
     symbolic = SymbolicTransformer(
-        population_size=500,
-        hall_of_fame=50,
+        population_size=100,
+        hall_of_fame=20,
         n_components=10,
-        generations=10,
-        tournament_size=20,
+        generations=5,
+        tournament_size=10,
         stopping_criteria=1.0,
         const_range=(-1.0, 1.0),
         init_depth=(2, 4),
@@ -270,10 +270,18 @@ def build_meta_features(preprocessor):
         random_state=RANDOM_STATE
     )
 
+    from sklearn.compose import ColumnTransformer
+    # Age is 0, Family_Size is 3, AdjFare is 5 based on numeric pipeline output
+    # Also pass only these features to TabPFN
+    core_features = ColumnTransformer(
+        [("num_features", "passthrough", [0, 3, 5])],
+        remainder="drop"
+    )
+    from sklearn.pipeline import make_pipeline
     union = FeatureUnion([
         ("original", FunctionTransformer()),
-        ("symbolic", symbolic),
-        ("tabpfn", TabPFNFeatureExtractor(random_state=RANDOM_STATE))
+        ("symbolic", make_pipeline(core_features, symbolic)),
+        ("tabpfn", make_pipeline(core_features, TabPFNFeatureExtractor(random_state=RANDOM_STATE)))
     ])
 
     union = make_pipeline(ToDenseTransformer(), union)
