@@ -1,35 +1,13 @@
 {
-  "generated_at": "2026-08-14T05:58:34.527272+00:00",
+  "generated_at": "2026-08-14T11:35:02.459196+00:00",
   "scores": {
-    "CatBoost": {
-      "accuracy": 0.8245245119578182,
-      "roc_auc": 0.8807004273950941
-    },
-    "XGBoost": {
-      "accuracy": 0.8312556232084197,
-      "roc_auc": 0.8822643721762073
-    },
-    "LightGBM": {
-      "accuracy": 0.8323750340007952,
-      "roc_auc": 0.877823665927915
-    },
-    "RandomForest": {
-      "accuracy": 0.8297595882242169,
-      "roc_auc": 0.8816957136772829
-    },
     "Stacking": {
       "accuracy": 0.8316498316498316,
       "roc_auc": 0.8870008202047317
     }
   },
   "submissions": {
-    "CatBoost": "/app/submissions/submission_catboost.csv",
-    "XGBoost": "/app/submissions/submission_xgboost.csv",
-    "LightGBM": "/app/submissions/submission_lightgbm.csv",
-    "RandomForest": "/app/submissions/submission_randomforest.csv",
-    "Stacking": "/app/submissions/submission_stacking.csv",
-    "WeightedEnsemble": "/app/submissions/submission_weighted_ensemble.csv",
-    "MajorityVote": "/app/submissions/submission_majority_vote.csv"
+    "Stacking": "/app/submissions/submission_stacking.csv"
   },
   "rows": 418
 }
