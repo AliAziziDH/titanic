@@ -25,7 +25,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import cross_val_predict
 
 from gplearn.genetic import SymbolicTransformer
-from tabpfn import TabPFNClassifier
+# from tabpfn import TabPFNClassifier
 
 from src.config import (
     DATA_PROCESSED_DIR,
@@ -131,85 +131,89 @@ class WCGSurvivalEncoder(BaseEstimator, TransformerMixin):
 class AgeImputer(BaseEstimator, TransformerMixin):
     def __init__(self, random_state=42):
         self.random_state = random_state
-        self.imputer = None
+        self.model = None
         self.available_cols = []
-        self.sex_map = False
+        self.global_median = 28.0
 
     def fit(self, X, y=None):
-        from sklearn.experimental import enable_iterative_imputer
-        from sklearn.impute import IterativeImputer
-        self.imputer = IterativeImputer(random_state=self.random_state)
+        from sklearn.linear_model import BayesianRidge
 
-        # Features to conditionally group by / use for imputing
-        cols_to_use = ['Age', 'Pclass', 'Title_Encoded']
-        X_temp = X.copy()
-        if 'Sex' in X_temp.columns:
-            if X_temp['Sex'].dtype == 'O' or X_temp['Sex'].dtype == 'string':
-                self.sex_map = True
-                X_temp['Sex'] = X_temp['Sex'].map({'male': 0, 'female': 1})
-            cols_to_use.append('Sex')
+        # Features to use for imputing
+        cols_to_use = ['Title_Encoded', 'Pclass', 'Family_Size']
 
-        # Only fit on available cols
-        self.available_cols = [c for c in cols_to_use if c in X_temp.columns]
+        self.available_cols = [c for c in cols_to_use if c in X.columns]
 
-        if len(self.available_cols) > 0 and 'Age' in self.available_cols:
-            self.imputer.fit(X_temp[self.available_cols])
+        if 'Age' in X.columns:
+            self.global_median = X['Age'].median()
+
+            # Filter rows where Age is known and all predictor columns are available
+            known_mask = X['Age'].notna() & X[self.available_cols].notna().all(axis=1)
+
+            if known_mask.sum() > 0 and len(self.available_cols) > 0:
+                self.model = BayesianRidge()
+                self.model.fit(X.loc[known_mask, self.available_cols], X.loc[known_mask, 'Age'])
+            else:
+                self.model = None
         else:
-            self.imputer = None
+            self.model = None
 
         return self
 
     def transform(self, X):
         df = X.copy()
-        if self.imputer is not None and 'Age' in df.columns:
-            if self.sex_map and 'Sex' in df.columns:
-                df['Sex'] = df['Sex'].map({'male': 0, 'female': 1})
-            # fill missing
-            imputed = self.imputer.transform(df[self.available_cols])
-            df['Age'] = imputed[:, self.available_cols.index('Age')]
-            if self.sex_map and 'Sex' in X.columns:
-                df['Sex'] = X['Sex'] # restore original
+        if 'Age' in df.columns:
+            missing_mask = df['Age'].isna()
+
+            if missing_mask.sum() > 0:
+                if self.model is not None:
+                    # Impute missing values with BayesianRidge if predictors are valid
+                    pred_mask = missing_mask & df[self.available_cols].notna().all(axis=1)
+                    if pred_mask.sum() > 0:
+                        df.loc[pred_mask, 'Age'] = self.model.predict(df.loc[pred_mask, self.available_cols])
+
+                # Fallback to global median for any remaining missing values
+                df['Age'] = df['Age'].fillna(self.global_median)
         return df
 
 
-class TabPFNFeatureExtractor(BaseEstimator, TransformerMixin):
-    def __init__(self, random_state=42):
-        self.random_state = random_state
-        self.tabpfn = TabPFNClassifier(n_estimators=1, ignore_pretraining_limits=True,
-            model_path="models/tabpfn/tabpfn-v3-classifier-v3_default.ckpt",
-            device='cpu'
-        )
-        self.fitted_ = False
-        self.train_probs_ = None
+# class TabPFNFeatureExtractor(BaseEstimator, TransformerMixin):
+#     def __init__(self, random_state=42):
+#         self.random_state = random_state
+#         self.tabpfn = TabPFNClassifier(n_estimators=1, ignore_pretraining_limits=True,
+#             model_path="models/tabpfn/tabpfn-v3-classifier-v3_default.ckpt",
+#             device='cpu'
+#         )
+#         self.fitted_ = False
+#         self.train_probs_ = None
 
-    def fit(self, X, y=None):
-        if y is None:
-            return self
+#     def fit(self, X, y=None):
+#         if y is None:
+#             return self
 
-        from sklearn.model_selection import StratifiedKFold
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.random_state)
+#         from sklearn.model_selection import StratifiedKFold
+#         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.random_state)
 
-        X_imputed = np.nan_to_num(X, nan=-999.0)
+#         X_imputed = np.nan_to_num(X, nan=-999.0)
 
-        self.train_probs_ = cross_val_predict(
-            self.tabpfn, X_imputed, y, cv=cv, method='predict_proba', n_jobs=-1
-        )[:, 1].reshape(-1, 1)
+#         self.train_probs_ = cross_val_predict(
+#             self.tabpfn, X_imputed, y, cv=cv, method='predict_proba', n_jobs=-1
+#         )[:, 1].reshape(-1, 1)
 
-        self.tabpfn.fit(X_imputed, y)
-        self.fitted_ = True
-        return self
+#         self.tabpfn.fit(X_imputed, y)
+#         self.fitted_ = True
+#         return self
 
-    def fit_transform(self, X, y=None):
-        self.fit(X, y)
-        return self.train_probs_
+#     def fit_transform(self, X, y=None):
+#         self.fit(X, y)
+#         return self.train_probs_
 
-    def transform(self, X):
-        if not self.fitted_:
-            return np.zeros((X.shape[0], 1))
+#     def transform(self, X):
+#         if not self.fitted_:
+#             return np.zeros((X.shape[0], 1))
 
-        X_imputed = np.nan_to_num(X, nan=-999.0)
-        probs = self.tabpfn.predict_proba(X_imputed)[:, 1].reshape(-1, 1)
-        return probs
+#         X_imputed = np.nan_to_num(X, nan=-999.0)
+#         probs = self.tabpfn.predict_proba(X_imputed)[:, 1].reshape(-1, 1)
+#         return probs
 
 
 class ToDenseTransformer(BaseEstimator, TransformerMixin):
@@ -281,7 +285,8 @@ def build_meta_features(preprocessor):
     union = FeatureUnion([
         ("original", FunctionTransformer()),
         ("symbolic", make_pipeline(core_features, symbolic)),
-        ("tabpfn", make_pipeline(core_features, TabPFNFeatureExtractor(random_state=RANDOM_STATE)))
+        # Disabled TabPFN due to licensing checkpoint download issues in headless mode
+        # ("tabpfn", make_pipeline(core_features, TabPFNFeatureExtractor(random_state=RANDOM_STATE)))
     ])
 
     union = make_pipeline(ToDenseTransformer(), union)
@@ -378,6 +383,52 @@ def default_models() -> Dict[str, Any]:
     return models
 
 
+def compute_ipw_weights(X_fold: pd.DataFrame) -> np.ndarray:
+    """Compute Inverse Probability Weights (IPW) for a training fold."""
+    if 'Pclass' not in X_fold.columns:
+        return np.ones(len(X_fold))
+
+    # Treatment T_i = 1 if Pclass in {1, 2} (Upper/Middle), else 0 (Lower)
+    T = X_fold['Pclass'].isin([1, 2]).astype(int).to_numpy()
+
+    # Baseline confounders for Propensity Score Model
+    confounders = ['Sex', 'Age', 'Embarked', 'Family_Size']
+    available = [c for c in confounders if c in X_fold.columns]
+
+    if not available:
+        return np.ones(len(X_fold))
+
+    X_propensity = X_fold[available].copy()
+
+    # Simple imputation and encoding for Logistic Regression
+    if 'Sex' in X_propensity.columns:
+        X_propensity['Sex'] = X_propensity['Sex'].map({'male': 0, 'female': 1}).fillna(0)
+
+    if 'Age' in X_propensity.columns:
+        X_propensity['Age'] = X_propensity['Age'].fillna(X_propensity['Age'].median())
+
+    if 'Embarked' in X_propensity.columns:
+        X_propensity['Embarked'] = X_propensity['Embarked'].map({'S': 0, 'C': 1, 'Q': 2}).fillna(0)
+
+    if 'Family_Size' in X_propensity.columns:
+        X_propensity['Family_Size'] = X_propensity['Family_Size'].fillna(X_propensity['Family_Size'].median())
+
+    from sklearn.linear_model import LogisticRegression
+    # Fit Propensity Score model
+    ps_model = LogisticRegression(random_state=RANDOM_STATE, max_iter=1000)
+    ps_model.fit(X_propensity, T)
+
+    # Estimate propensity scores e(X_i) = P(T_i = 1 | X_i)
+    e = ps_model.predict_proba(X_propensity)[:, 1]
+
+    # Trim to stabilize weights
+    e = np.clip(e, 0.05, 0.95)
+
+    # Calculate IPW
+    w = (T / e) + ((1 - T) / (1 - e))
+    return w
+
+
 def evaluate_model(
     model: Any,
     X_train: pd.DataFrame,
@@ -394,7 +445,19 @@ def evaluate_model(
             ("meta_features", build_meta_features(build_preprocessor(X_train))),
             ("model", clone(model)),
         ])
-        pipeline.fit(X_train.iloc[fit_idx], y_train.iloc[fit_idx])
+
+        X_fold_train = X_train.iloc[fit_idx]
+        y_fold_train = y_train.iloc[fit_idx]
+
+        # Determine if model supports sample weights and apply IPW
+        # CatBoost, XGBoost, LightGBM, and RandomForest generally do.
+        supported_models = ['CatBoost', 'XGBoost', 'RandomForest', 'LightGBM']
+        if model_name in supported_models:
+            weights = compute_ipw_weights(X_fold_train)
+            pipeline.fit(X_fold_train, y_fold_train, model__sample_weight=weights)
+        else:
+            pipeline.fit(X_fold_train, y_fold_train)
+
         predictions = pipeline.predict(X_train.iloc[validation_idx])
         probabilities = pipeline.predict_proba(X_train.iloc[validation_idx])[:, 1]
         scores["accuracy"].append(accuracy_score(y_train.iloc[validation_idx], predictions))
@@ -451,6 +514,9 @@ def run_modeling_pipeline() -> pd.DataFrame:
 
     # Train and save ALL individual models so final_submission.py can load them
     models_dict = default_models()
+
+    supported_models = ['CatBoost', 'XGBoost', 'RandomForest', 'LightGBM']
+
     for name, model in models_dict.items():
         pipeline = ImbPipeline([
             ("wcg_encoder", WCGSurvivalEncoder()),
@@ -458,7 +524,13 @@ def run_modeling_pipeline() -> pd.DataFrame:
             ("meta_features", build_meta_features(build_preprocessor(X_train))),
             ("model", model),
         ])
-        pipeline.fit(X_train, y_train)
+
+        if name in supported_models:
+            weights = compute_ipw_weights(X_train)
+            pipeline.fit(X_train, y_train, model__sample_weight=weights)
+        else:
+            pipeline.fit(X_train, y_train)
+
         joblib.dump(pipeline, MODEL_DIR / f"{name.lower()}_final.joblib")
 
     # The rest proceeds as before for the "best" model logic
@@ -469,7 +541,12 @@ def run_modeling_pipeline() -> pd.DataFrame:
         ("meta_features", build_meta_features(build_preprocessor(X_train))),
         ("model", best_model),
     ])
-    final_pipeline.fit(X_train, y_train)
+
+    if best["model"] in supported_models:
+        weights = compute_ipw_weights(X_train)
+        final_pipeline.fit(X_train, y_train, model__sample_weight=weights)
+    else:
+        final_pipeline.fit(X_train, y_train)
     test_predictions = final_pipeline.predict(X_test).astype(int)
     submission = pd.DataFrame({"PassengerId": test["PassengerId"], TARGET_COLUMN: test_predictions})
     submission_path = Path(SUBMISSIONS_DIR) / "submission_modeling.csv"

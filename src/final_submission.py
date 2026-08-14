@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from src.config import DATA_PROCESSED_DIR, EXPERIMENTS_DIR, MODELS_DIR, TARGET_COLUMN, get_input_dir
-from src.modeling import PipelineWrapper, TabPFNFeatureExtractor, ToDenseTransformer, WCGSurvivalEncoder, AgeImputer # Required for unpickling models
+from src.modeling import PipelineWrapper, ToDenseTransformer, WCGSurvivalEncoder, AgeImputer # Required for unpickling models
 
 LOGGER = logging.getLogger("titanic.final_submission")
 PROJECT_DIR = Path(__file__).resolve().parent.parent
