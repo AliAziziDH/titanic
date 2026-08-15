@@ -332,11 +332,24 @@ def _submit_to_kaggle():
         return
 
     LOGGER.info("Submitting %s to Kaggle...", blend_file.name)
+    import hashlib
+    # 2. FORCE PHYSICAL DIFF DIAGNOSTIC
+    file_size = blend_file.stat().st_size
+    md5_hash = hashlib.md5(blend_file.read_bytes()).hexdigest()
+    LOGGER.info(f"Diagnostic - File Size: {file_size} bytes")
+    LOGGER.info(f"Diagnostic - MD5 Checksum: {md5_hash}")
+
+    # Print the first 5 rows
+    import pandas as pd
+    first_5 = pd.read_csv(blend_file).head(5)
+    LOGGER.info(f"Diagnostic - First 5 rows:\n{first_5.to_string()}")
+
+    # 3. ALIGN PATHS AND SUBMIT using Absolute Path
     submit_cmd = [
         "kaggle", "competitions", "submit",
         "-c", "titanic",
-        "-f", str(blend_file),
-        "-m", "Optimized SLSQP Blend Binary"
+        "-f", str(blend_file.absolute()),
+        "-m", "Phase_8_Final"
     ]
     try:
         subprocess.run(submit_cmd, check=True, capture_output=True, text=True)
