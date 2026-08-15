@@ -111,7 +111,11 @@ def _check_model_preprocessing(test: pd.DataFrame) -> Dict[str, Any]:
             result["meta_input_shape"] = list(base.shape)
             result["predictability_check"] = len(np.dot(base, meta)) == len(test)
         else:
-            for path in base_paths:
+            blend_order = ["XGBoost", "LightGBM", "CatBoost"]
+            blend_paths = [Path(MODELS_DIR) / f"stacking_{n.lower()}.joblib" for n in blend_order]
+            if not all(path.exists() for path in blend_paths):
+                blend_paths = base_paths
+            for path in blend_paths:
                 model = joblib.load(path)
                 predictions.append(model.predict_proba(test)[:, 1])
             base = pd.DataFrame(np.column_stack(predictions))
