@@ -188,6 +188,8 @@ def _load_individual_models() -> Dict[str, Any]:
     return loaded
 
 
+import os
+
 def _load_stacking_models() -> tuple[Dict[str, Any], Any]:
     order = ["RandomForest", "MLP", "CatBoost", "LightGBM", "XGBoost"]
     base = {}
@@ -195,9 +197,11 @@ def _load_stacking_models() -> tuple[Dict[str, Any], Any]:
         path = Path(MODELS_DIR) / f"stacking_{name.lower()}.joblib"
         if path.exists():
             base[name] = joblib.load(path)
+            LOGGER.info("Loaded model %s. Mod time: %s", path.name, datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc).isoformat())
     meta_path = Path(MODELS_DIR) / "stacking_meta_model.joblib"
     if not meta_path.exists():
         raise FileNotFoundError("Complete stacking model artifacts are not available")
+    LOGGER.info("Loaded meta model %s. Mod time: %s", meta_path.name, datetime.fromtimestamp(os.path.getmtime(meta_path), tz=timezone.utc).isoformat())
     return {name: base[name] for name in order if name in base}, joblib.load(meta_path)
 
 
@@ -241,12 +245,18 @@ def run_final_submission() -> Dict[str, Any]:
                 base_predictions = pd.DataFrame({
                     name: model.predict_proba(X_test)[:, 1] for name, model in base_models.items()
                 })
-                stack_probability = np.dot(base_predictions, meta_model)
+                LOGGER.info("Expected blend_models: list empty. Using base_models order: %s", list(base_models.keys()))
+                LOGGER.info("base_predictions columns: %s", list(base_predictions.columns))
+                LOGGER.info("optimal_weights len: %s, values: %s", len(meta_model), meta_model)
+                stack_probability = np.dot(base_predictions.values, meta_model)
             else:
-                base_predictions = pd.DataFrame({
-                    name: base_models[name].predict_proba(X_test)[:, 1] for name in blend_models
-                })
-                stack_probability = np.dot(base_predictions, meta_model)
+                base_predictions = pd.DataFrame()
+                for name in blend_models:
+                    base_predictions[name] = base_models[name].predict_proba(X_test)[:, 1]
+                LOGGER.info("Expected blend_models order: %s", blend_models)
+                LOGGER.info("base_predictions columns: %s", list(base_predictions.columns))
+                LOGGER.info("optimal_weights len: %s, values: %s", len(meta_model), meta_model)
+                stack_probability = np.dot(base_predictions.values, meta_model)
         else:
             base_predictions = pd.DataFrame({
                 name: model.predict_proba(X_test)[:, 1] for name, model in base_models.items()
