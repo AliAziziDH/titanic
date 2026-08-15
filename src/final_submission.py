@@ -157,7 +157,7 @@ def _load_scores() -> Dict[str, Dict[str, float]]:
     return scores
 
 
-def _write_submission(name: str, passenger_ids: pd.Series, probabilities: np.ndarray) -> Path:
+def _write_submission(name: str, passenger_ids: pd.Series, probabilities: np.ndarray, threshold: float = 0.5) -> Path:
     if len(passenger_ids) != 418:
         raise ValueError(f"CRITICAL ERROR: Refusing to generate submission. Test data has {len(passenger_ids)} rows. Must be exactly 418!")
     if not (passenger_ids.min() == 892 and passenger_ids.max() == 1309):
@@ -166,7 +166,7 @@ def _write_submission(name: str, passenger_ids: pd.Series, probabilities: np.nda
     path = SUBMISSIONS_DIR / f"submission_{name.lower()}.csv"
     pd.DataFrame({
         "PassengerId": passenger_ids,
-        TARGET_COLUMN: (np.asarray(probabilities) >= 0.5).astype(int),
+        TARGET_COLUMN: (np.asarray(probabilities) >= threshold).astype(int),
     }).to_csv(path, index=False)
     return path
 
@@ -226,17 +226,26 @@ def run_final_submission() -> Dict[str, Any]:
     wcg_processor = WCGPostProcessor()
     wcg_processor.fit(train)
 
+    # Load optimal threshold
+    summary_path = SUBMISSIONS_DIR / "submission_summary.json"
+    optimal_threshold = 0.5
+    if summary_path.exists():
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        optimal_threshold = summary.get("optimal_threshold", 0.5)
+
     for name, model in _load_individual_models().items():
         base_prob = model.predict_proba(X_test)[:, 1]
+        # Only apply WCG on stacking, not individual base models (to keep them pure for inspection if needed, or apply if preferred)
+        # But per user instruction, we apply WCG strictly at the end. For individual models, we'll apply it too for consistency if requested.
         if name in ["CatBoost", "Stacking"]: # Although Stacking is below, CatBoost is here
             base_prob = wcg_processor.transform(test, base_prob)
         probabilities[name] = base_prob
-        paths[name] = str(_write_submission(name, passenger_ids, probabilities[name]))
+        paths[name] = str(_write_submission(name, passenger_ids, probabilities[name], threshold=optimal_threshold))
 
     try:
         base_models, meta_model = _load_stacking_models()
 
-        # Meta model is an array of SLSQP optimal weights
+        # Meta model is an array of SLSQP optimal weights or LogisticRegression
         blend_models = ["XGBoost", "LightGBM", "CatBoost"]
         blend_models = [m for m in blend_models if m in base_models.keys()]
 
@@ -258,15 +267,17 @@ def run_final_submission() -> Dict[str, Any]:
                 LOGGER.info("optimal_weights len: %s, values: %s", len(meta_model), meta_model)
                 stack_probability = np.dot(base_predictions.values, meta_model)
         else:
+            if not blend_models:
+                blend_models = list(base_models.keys())
             base_predictions = pd.DataFrame({
-                name: model.predict_proba(X_test)[:, 1] for name, model in base_models.items()
+                name: base_models[name].predict_proba(X_test)[:, 1] for name in blend_models
             })
             stack_probability = meta_model.predict_proba(base_predictions)[:, 1]
 
         stack_probability = wcg_processor.transform(test, stack_probability)
 
         probabilities["Stacking"] = stack_probability
-        paths["Stacking"] = str(_write_submission("stacking", passenger_ids, stack_probability))
+        paths["Stacking"] = str(_write_submission("stacking", passenger_ids, stack_probability, threshold=optimal_threshold))
     except FileNotFoundError as error:
         LOGGER.warning("Skipping stacking submission: %s", error)
 

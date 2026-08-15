@@ -149,44 +149,55 @@ def run_stacking_pipeline() -> pd.DataFrame:
     oof_path = Path(EXPERIMENTS_DIR) / "oof_predictions.npz"
     np.savez(oof_path, predictions=oof.to_numpy(), target=y_train.to_numpy())
 
-    from scipy.optimize import minimize
-    from sklearn.metrics import log_loss
+    from sklearn.linear_model import LogisticRegression
 
     # We specifically optimize on XGBoost, LightGBM, and CatBoost
     blend_models = ["XGBoost", "LightGBM", "CatBoost"]
     blend_models = [m for m in blend_models if m in oof.columns]
 
     if not blend_models:
-        LOGGER.warning("None of the target blend models found; falling back to uniform weights.")
-        optimal_weights = np.ones(oof.shape[1]) / oof.shape[1]
+        LOGGER.warning("None of the target blend models found; falling back to all models.")
         blend_oof = oof
+        blend_models = list(oof.columns)
     else:
         blend_oof = oof[blend_models]
         LOGGER.info("OOF Check - NaN count: %s, Data types: %s, Min: %s, Max: %s", blend_oof.isna().sum().to_dict(), blend_oof.dtypes.to_dict(), blend_oof.min().to_dict(), blend_oof.max().to_dict())
-        def loss_func(weights):
-            blended = np.dot(blend_oof, weights)
-            return log_loss(y_train, blended)
 
-        initial_weights = np.ones(len(blend_models)) / len(blend_models)
-        bounds = [(0, 1) for _ in range(len(blend_models))]
-        constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
+    LOGGER.info("Fitting LogisticRegression Meta-Model...")
+    meta_model = LogisticRegression(C=0.1, penalty='l2', random_state=RANDOM_STATE)
+    meta_model.fit(blend_oof, y_train)
+    meta_probabilities = meta_model.predict_proba(blend_oof)[:, 1]
 
-        res = minimize(loss_func, initial_weights, method="SLSQP", bounds=bounds, constraints=constraints)
-        optimal_weights = res.x
-        LOGGER.info("Optimized Blend Weights: %s", dict(zip(blend_models, optimal_weights)))
+    def optimize_threshold(oof_probs, y_true):
+        """
+        Scans thresholds between 0.40 and 0.60 on OOF predictions
+        to find the decision boundary that maximizes Local CV Accuracy.
+        """
+        best_threshold = 0.50
+        best_score = 0.0
+        thresholds = np.linspace(0.40, 0.60, 100)
 
-    meta_probabilities = np.dot(blend_oof, optimal_weights)
+        for t in thresholds:
+            preds = (oof_probs >= t).astype(int)
+            score = accuracy_score(y_true, preds)
+            if score > best_score:
+                best_score = score
+                best_threshold = t
+
+        LOGGER.info(f"🏆 Optimal decision threshold found on OOF: {best_threshold:.4f} (Accuracy: {best_score:.4f})")
+        return best_threshold
+
+    optimal_threshold = optimize_threshold(meta_probabilities, y_train)
+
     stack_metrics = _metrics(y_train, meta_probabilities)
     stack_metrics["training_metrics"] = _metrics(y_train, meta_probabilities) # Optimization ran on full OOF directly
-    LOGGER.info("SLSQP Blend OOF metrics: %s", stack_metrics)
+    LOGGER.info("Meta-Model OOF metrics: %s", stack_metrics)
 
     test_base_initial = pd.DataFrame({
         name: full_models[name].predict_proba(X_test)[:, 1] for name in blend_models
-    }) if blend_models else pd.DataFrame({
-        name: model.predict_proba(X_test)[:, 1] for name, model in full_models.items()
     })
 
-    test_predictions_initial = np.dot(test_base_initial, optimal_weights)
+    test_predictions_initial = meta_model.predict_proba(test_base_initial)[:, 1]
 
     # Semi-Supervised Pseudo-Labeling via Confident Sinkhorn Allocation
     LOGGER.info("Running Confident Sinkhorn Allocation on test probabilities...")
@@ -223,12 +234,12 @@ def run_stacking_pipeline() -> pd.DataFrame:
         name: model.predict_proba(X_test)[:, 1] for name, model in retrained_models.items()
     })
 
-    # Use the FROZEN SLSQP optimal weights to combine predictions
-    test_predictions_final = np.dot(test_base_retrained, optimal_weights)
+    # Use the FROZEN Meta-Model to combine predictions
+    test_predictions_final = meta_model.predict_proba(test_base_retrained)[:, 1]
 
     submission = pd.DataFrame({
         "PassengerId": test["PassengerId"],
-        TARGET_COLUMN: (test_predictions_final >= 0.5).astype(int),
+        TARGET_COLUMN: (test_predictions_final >= optimal_threshold).astype(int),
     })
 
     submission_path = Path(SUBMISSIONS_DIR) / "submission_stacking.csv"
@@ -256,9 +267,20 @@ def run_stacking_pipeline() -> pd.DataFrame:
     (Path(EXPERIMENTS_DIR) / "stacking_results.json").write_text(
         json.dumps(results, indent=2), encoding="utf-8"
     )
+    # Save the optimal threshold so final_submission can use it
+    summary_path = Path(SUBMISSIONS_DIR) / "submission_summary.json"
+    if summary_path.exists():
+        with open(summary_path, "r") as f:
+            summary = json.load(f)
+    else:
+        summary = {}
+    summary["optimal_threshold"] = optimal_threshold
+    with open(summary_path, "w") as f:
+        json.dump(summary, f, indent=2)
+
     for name, model in retrained_models.items():
         joblib.dump(model, Path(MODELS_DIR) / f"stacking_{name.lower()}.joblib")
-    joblib.dump(optimal_weights, Path(MODELS_DIR) / "stacking_meta_model.joblib")
+    joblib.dump(meta_model, Path(MODELS_DIR) / "stacking_meta_model.joblib")
     LOGGER.info("Stacking submission saved to %s", submission_path)
     return submission
 
