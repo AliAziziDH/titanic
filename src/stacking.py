@@ -28,7 +28,8 @@ from src.config import (
     SUBMISSIONS_DIR,
     TARGET_COLUMN,
 )
-from src.modeling import build_preprocessor, load_modeling_data, WCGSurvivalEncoder, AgeImputer
+from src.modeling import build_preprocessor, load_modeling_data, WCGSurvivalEncoder, AgeImputer, compute_ipw_weights
+from src.csa_allocator import ConfidentSinkhornAllocator
 
 LOGGER = logging.getLogger("titanic.stacking")
 FEATURE_EXCLUSIONS = {TARGET_COLUMN, "PassengerId"}
@@ -179,16 +180,55 @@ def run_stacking_pipeline() -> pd.DataFrame:
     stack_metrics["training_metrics"] = _metrics(y_train, meta_probabilities) # Optimization ran on full OOF directly
     LOGGER.info("SLSQP Blend OOF metrics: %s", stack_metrics)
 
-    test_base = pd.DataFrame({
+    test_base_initial = pd.DataFrame({
         name: full_models[name].predict_proba(X_test)[:, 1] for name in blend_models
     }) if blend_models else pd.DataFrame({
         name: model.predict_proba(X_test)[:, 1] for name, model in full_models.items()
     })
 
-    test_predictions = np.dot(test_base, optimal_weights)
+    test_predictions_initial = np.dot(test_base_initial, optimal_weights)
+
+    # Semi-Supervised Pseudo-Labeling via Confident Sinkhorn Allocation
+    LOGGER.info("Running Confident Sinkhorn Allocation on test probabilities...")
+    allocator = ConfidentSinkhornAllocator()
+    high_conf_idx, pseudo_labels = allocator.fit_allocate(test_predictions_initial)
+    LOGGER.info("Extracted %d high-confidence pseudo-labels.", len(high_conf_idx))
+
+    # Augment training data in-memory
+    X_train_aug = pd.concat([X_train, X_test.iloc[high_conf_idx]], ignore_index=True)
+    y_train_aug = pd.concat([y_train, pd.Series(pseudo_labels[high_conf_idx])], ignore_index=True)
+
+    # Retrain full base models on augmented dataset (with IPW)
+    LOGGER.info("Retraining base models on augmented dataset...")
+    retrained_models: Dict[str, Pipeline] = {}
+
+    # Supported IPW models as defined in modeling.py
+    supported_models = ['CatBoost', 'XGBoost', 'RandomForest', 'LightGBM']
+
+    for name, estimator in models.items():
+        fitted = _pipeline(clone(estimator), X_train_aug)
+
+        if name in supported_models:
+            weights = compute_ipw_weights(X_train_aug)
+            fitted.fit(X_train_aug, y_train_aug, model__sample_weight=weights)
+        else:
+            fitted.fit(X_train_aug, y_train_aug)
+
+        retrained_models[name] = fitted
+
+    # Predict on the entire test set again with the retrained models
+    test_base_retrained = pd.DataFrame({
+        name: retrained_models[name].predict_proba(X_test)[:, 1] for name in blend_models
+    }) if blend_models else pd.DataFrame({
+        name: model.predict_proba(X_test)[:, 1] for name, model in retrained_models.items()
+    })
+
+    # Use the FROZEN SLSQP optimal weights to combine predictions
+    test_predictions_final = np.dot(test_base_retrained, optimal_weights)
+
     submission = pd.DataFrame({
         "PassengerId": test["PassengerId"],
-        TARGET_COLUMN: (test_predictions >= 0.5).astype(int),
+        TARGET_COLUMN: (test_predictions_final >= 0.5).astype(int),
     })
 
     submission_path = Path(SUBMISSIONS_DIR) / "submission_stacking.csv"
@@ -196,7 +236,7 @@ def run_stacking_pipeline() -> pd.DataFrame:
 
     submission_prob = pd.DataFrame({
         "PassengerId": test["PassengerId"],
-        TARGET_COLUMN: test_predictions,
+        TARGET_COLUMN: test_predictions_final,
     })
     submission_prob_path = Path(SUBMISSIONS_DIR) / "submission_blend_probabilities.csv"
     submission_prob.to_csv(submission_prob_path, index=False)
@@ -216,7 +256,7 @@ def run_stacking_pipeline() -> pd.DataFrame:
     (Path(EXPERIMENTS_DIR) / "stacking_results.json").write_text(
         json.dumps(results, indent=2), encoding="utf-8"
     )
-    for name, model in full_models.items():
+    for name, model in retrained_models.items():
         joblib.dump(model, Path(MODELS_DIR) / f"stacking_{name.lower()}.joblib")
     joblib.dump(optimal_weights, Path(MODELS_DIR) / "stacking_meta_model.joblib")
     LOGGER.info("Stacking submission saved to %s", submission_path)
