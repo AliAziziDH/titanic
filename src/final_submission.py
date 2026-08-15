@@ -289,7 +289,51 @@ def run_final_submission() -> Dict[str, Any]:
     summary_path = SUBMISSIONS_DIR / "submission_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     LOGGER.info("Generated %d submission files in %s", len(paths), SUBMISSIONS_DIR)
+
+    _submit_to_kaggle()
     return summary
+
+
+def _submit_to_kaggle():
+    """Submit the blend to Kaggle and poll for the score."""
+    import os
+    import subprocess
+    import time
+
+    kaggle_json = Path.home() / ".kaggle" / "kaggle.json"
+    if not kaggle_json.exists() and "KAGGLE_USERNAME" not in os.environ:
+        LOGGER.warning("Kaggle credentials not found. Skipping auto-submission.")
+        return
+
+    blend_file = SUBMISSIONS_DIR / "submission_stacking.csv" # We submit the binary output file
+    if not blend_file.exists():
+        LOGGER.warning("Blend submission file not found: %s", blend_file)
+        return
+
+    LOGGER.info("Submitting %s to Kaggle...", blend_file.name)
+    submit_cmd = [
+        "kaggle", "competitions", "submit",
+        "-c", "titanic",
+        "-f", str(blend_file),
+        "-m", "Optimized SLSQP Blend Binary"
+    ]
+    try:
+        subprocess.run(submit_cmd, check=True, capture_output=True, text=True)
+        LOGGER.info("Submission successful. Waiting 15 seconds before polling...")
+        time.sleep(15)
+
+        poll_cmd = ["kaggle", "competitions", "submissions", "-c", "titanic"]
+        result = subprocess.run(poll_cmd, check=True, capture_output=True, text=True)
+
+        # Parse the output to find our submission
+        LOGGER.info("--- Kaggle Leaderboard Status ---")
+        for line in result.stdout.splitlines()[:5]: # Print header and top few lines
+            LOGGER.info(line)
+
+    except subprocess.CalledProcessError as e:
+        LOGGER.error("Kaggle API command failed: %s", e.stderr)
+    except Exception as e:
+        LOGGER.error("Error during Kaggle submission: %s", e)
 
 
 if __name__ == "__main__":
