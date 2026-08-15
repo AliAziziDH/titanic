@@ -32,3 +32,5 @@ catboost_info/
 
 # Reports
 reports/figures/
+!submissions/submission_stacking.csv
+!submissions/submission_summary.json
