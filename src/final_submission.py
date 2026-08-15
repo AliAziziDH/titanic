@@ -18,8 +18,8 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 SUBMISSIONS_DIR = PROJECT_DIR / "submissions"
 
 
-def _load_clean_data() -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Load processed data, rebuilding it from local or Kaggle raw data when needed."""
+def _load_modeling_data() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load modeling data, rebuilding it from local or Kaggle raw data when needed."""
     train_path = Path(DATA_PROCESSED_DIR) / "train_clean.csv"
     test_path = Path(DATA_PROCESSED_DIR) / "test_clean.csv"
     if train_path.exists() and test_path.exists():
@@ -204,7 +204,7 @@ def _load_stacking_models() -> tuple[Dict[str, Any], Any]:
 def run_final_submission() -> Dict[str, Any]:
     """Generate individual, stacking, weighted, and majority-vote submissions."""
     SUBMISSIONS_DIR.mkdir(parents=True, exist_ok=True)
-    train, test = _load_clean_data()
+    train, test = _load_modeling_data()
 
     # Guardrail checking
     passenger_ids = test["PassengerId"]
