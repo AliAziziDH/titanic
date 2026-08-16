@@ -44,11 +44,10 @@ MODEL_DIR = Path(MODELS_DIR)
 CV_RESULTS_PATH = Path(EXPERIMENTS_DIR) / "cv_results.json"
 
 NUMERICAL_FEATURES = [
-    "Age", "SibSp", "Parch", "Family_Size", "Ticket_Frequency", "AdjFare", "WCG_Survival",
+    "Age", "SibSp", "Parch", "Family_Size", "Ticket_Frequency", "AdjFare", "Title_Encoded", "Deck_Encoded",
 ]
 CATEGORICAL_FEATURES = [
-    "Sex", "Embarked", "Title_Num", "Title_Encoded", "Deck_Num", "Deck_Encoded",
-    "Deck", "Deck_Group", "Family_Name", "Last_Name", "Family_Size_Category", "Ticket_Prefix",
+    "Sex", "Embarked", "Deck", "Deck_Group", "Family_Name", "Last_Name", "Family_Size_Category", "Ticket_Prefix",
     "AdjFare_Bin", "Age_Band", "Sex_Pclass", "Title_Sex", "Group_ID",
 ]
 BINARY_FEATURES = ["Has_Cabin", "Is_Alone", "Is_Group", "Is_Mother", "WCG_Member"]
@@ -220,9 +219,19 @@ class ToDenseTransformer(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
     def transform(self, X):
+        import pandas as pd
         from scipy import sparse
         if sparse.issparse(X):
-            return X.toarray()
+            arr = X.toarray()
+            # If X has feature names (e.g. from set_output), try to restore them
+            if hasattr(X, "columns"):
+                return pd.DataFrame(arr, columns=X.columns, index=X.index)
+            # Actually sparse matrices don't have columns. Scikit-learn outputs a CSR matrix.
+            # But wait, with set_output(transform="pandas"), Scikit-learn's ColumnTransformer
+            # outputs a DataFrame, not a sparse matrix, as long as it's possible.
+            # OneHotEncoder with sparse_output=False (or when outputting pandas) returns dense DataFrame!
+        if isinstance(X, pd.DataFrame):
+            return X
         return np.array(X)
 
 
@@ -278,7 +287,7 @@ def build_meta_features(preprocessor):
     # Age is 0, Family_Size is 3, AdjFare is 5 based on numeric pipeline output
     # Also pass only these features to TabPFN
     core_features = ColumnTransformer(
-        [("num_features", "passthrough", [0, 3, 5])],
+        [("num_features", "passthrough", ["numeric__Age", "numeric__Family_Size", "numeric__AdjFare"])],
         remainder="drop"
     )
     from sklearn.pipeline import make_pipeline
@@ -325,7 +334,7 @@ def build_preprocessor(frame: pd.DataFrame) -> ColumnTransformer:
     ])
     categorical_pipeline = ImbPipeline([
         ("imputer", SimpleImputer(strategy="constant", fill_value="Unknown")),
-        ("encoder", OneHotEncoder(handle_unknown="ignore")),
+        ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
     ])
     return ColumnTransformer(
         transformers=[
@@ -333,7 +342,7 @@ def build_preprocessor(frame: pd.DataFrame) -> ColumnTransformer:
             ("categorical", categorical_pipeline, categorical + binary),
         ],
         remainder="drop",
-    )
+    ).set_output(transform="pandas")
 
 
 def _optional_models() -> Dict[str, Any]:
