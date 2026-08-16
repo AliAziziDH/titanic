@@ -240,7 +240,7 @@ def run_final_submission() -> Dict[str, Any]:
         if name in ["CatBoost", "Stacking"]: # Although Stacking is below, CatBoost is here
             base_prob = wcg_processor.transform(test, base_prob)
         probabilities[name] = base_prob
-        paths[name] = str(_write_submission(name, passenger_ids, probabilities[name], threshold=optimal_threshold))
+        paths[name] = str(_write_submission(name, passenger_ids, probabilities[name], threshold=0.5))
 
     try:
         base_models, meta_model = _load_stacking_models()
