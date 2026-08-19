@@ -100,8 +100,15 @@ def _sanity_checks(
     top_features: list[dict[str, Any]], names: list[str], values: Any, transformed: pd.DataFrame
 ) -> Dict[str, Any]:
     ranked = [item["feature"].lower() for item in top_features]
-    top_expected = any(any(key in feature for key in ["sex", "title", "pclass"]) for feature in ranked[:5])
-    passenger_id_high = any("passengerid" in feature for feature in ranked[:5])
+    top_expected = False
+    passenger_id_high = False
+    for feature in ranked[:5]:
+        if not top_expected and ("sex" in feature or "title" in feature or "pclass" in feature):
+            top_expected = True
+        if not passenger_id_high and "passengerid" in feature:
+            passenger_id_high = True
+        if top_expected and passenger_id_high:
+            break
     checks = {
         "expected_features_rank_high": {"passed": top_expected},
         "passenger_id_not_high": {"passed": not passenger_id_high},
