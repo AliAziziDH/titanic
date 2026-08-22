@@ -39,7 +39,7 @@ def _base_models() -> Dict[str, Any]:
     """Build base estimators with safe CPU defaults."""
     models: Dict[str, Any] = {
         "RandomForest": RandomForestClassifier(
-            n_estimators=100, max_depth=10, random_state=RANDOM_STATE, n_jobs=-1
+            n_estimators=100, max_depth=10, random_state=RANDOM_STATE, n_jobs=1
         ),
         "MLP": MLPClassifier(
             hidden_layer_sizes=(128, 64, 32), activation="relu", solver="adam",
@@ -66,6 +66,7 @@ def _base_models() -> Dict[str, Any]:
             max_depth=4, reg_lambda=50.0,
             subsample=0.7, colsample_bytree=0.7,
             random_state=RANDOM_STATE, device="cpu", verbosity=-1,
+            n_jobs=1,
         )
     except ImportError:
         LOGGER.warning("LightGBM is unavailable; skipping it")
@@ -77,6 +78,7 @@ def _base_models() -> Dict[str, Any]:
             n_estimators=500, learning_rate=0.05, max_depth=4,
             reg_lambda=50.0, subsample=0.7, colsample_bytree=0.7,
             random_state=RANDOM_STATE, tree_method="hist", eval_metric="logloss",
+            n_jobs=1,
         )
     except ImportError:
         LOGGER.warning("XGBoost is unavailable; skipping it")

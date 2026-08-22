@@ -108,22 +108,24 @@ def _create_fare_features(df: pd.DataFrame, reference: pd.DataFrame | None = Non
     except ValueError:
         df["AdjFare_Bin"] = pd.Series(pd.NA, index=df.index, dtype="string")
 
-
-
     return df
-    """Create per-person fare and quantile-based fare category."""
-    ticket_freq = df["Ticket_Frequency"].replace(0, 1)
-    df["AdjFare"] = df["Fare"] / ticket_freq
-    try:
-        if reference is not None and "AdjFare" not in reference.columns:
-            reference["AdjFare"] = reference["Fare"] / reference["Ticket"].map(reference["Ticket"].value_counts()).fillna(1).replace(0, 1)
-        reference_fare = (reference if reference is not None else df)["AdjFare"].dropna()
-        quantiles = reference_fare.quantile([0, 0.2, 0.4, 0.6, 0.8, 1]).to_numpy()
-        edges = np.unique(quantiles)
-        labels = ["Very Low", "Low", "Medium", "High", "Very High"][: len(edges) - 1]
-        df["AdjFare_Bin"] = pd.cut(df["AdjFare"], bins=edges, labels=labels, include_lowest=True)
-    except ValueError:
-        df["AdjFare_Bin"] = pd.Series(pd.NA, index=df.index, dtype="string")
+
+
+def _create_gp_mathematical_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Create non-leaking mathematical causal features using robust GP-style operators."""
+    # 1. Log-transformed Socioeconomic Burden: log(1 + AdjFare) / Pclass
+    adj_fare_safe = np.maximum(df["AdjFare"].fillna(0).to_numpy(), 0)
+    pclass_safe = df["Pclass"].fillna(3).astype(float).to_numpy()
+    df["GP_LogFare_Per_Class"] = np.log1p(adj_fare_safe) / pclass_safe
+
+    # 2. Family Vulnerability Index: Family_Size / (Pclass * (Age + 1))
+    age_safe = np.maximum(df["Age"].fillna(28.0).to_numpy(), 0)
+    family_size_safe = df["Family_Size"].fillna(1).astype(float).to_numpy()
+    df["GP_Family_Vulnerability"] = family_size_safe / (pclass_safe * (age_safe + 1.0))
+
+    # 3. Class-Scaled Ticket Wealth: np.sqrt(AdjFare) * (4 - Pclass)
+    df["GP_Fare_Class_Synergy"] = np.sqrt(adj_fare_safe) * (4.0 - pclass_safe)
+
     return df
 
 
@@ -186,6 +188,7 @@ def engineer_features(df: pd.DataFrame, reference_df: pd.DataFrame | None = None
     _create_fare_features(engineered, reference_df)
     _create_interaction_features(engineered)
     _create_advanced_features(engineered)
+    _create_gp_mathematical_features(engineered)
 
     columns = ESSENTIAL_COLUMNS + [
         "Title",
@@ -209,7 +212,10 @@ def engineer_features(df: pd.DataFrame, reference_df: pd.DataFrame | None = None
         "Is_Mother",
         "Age_Band",
         "WCG_Member",
-        "Group_ID"
+        "Group_ID",
+        "GP_LogFare_Per_Class",
+        "GP_Family_Vulnerability",
+        "GP_Fare_Class_Synergy",
     ]
     if TARGET_COLUMN in engineered.columns:
         columns.insert(1, TARGET_COLUMN)

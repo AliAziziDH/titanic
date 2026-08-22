@@ -45,6 +45,7 @@ CV_RESULTS_PATH = Path(EXPERIMENTS_DIR) / "cv_results.json"
 
 NUMERICAL_FEATURES = [
     "Age", "SibSp", "Parch", "Family_Size", "Ticket_Frequency", "AdjFare", "Title_Encoded", "Deck_Encoded",
+    "GP_LogFare_Per_Class", "GP_Family_Vulnerability", "GP_Fare_Class_Synergy",
 ]
 CATEGORICAL_FEATURES = [
     "Sex", "Embarked", "Deck", "Deck_Group", "Family_Name", "Last_Name", "Family_Size_Category", "Ticket_Prefix",
@@ -278,7 +279,7 @@ def build_meta_features(preprocessor):
         feature_names=None,
         warm_start=False,
         low_memory=False,
-        n_jobs=-1,
+        n_jobs=1,
         verbose=0,
         random_state=RANDOM_STATE
     )
